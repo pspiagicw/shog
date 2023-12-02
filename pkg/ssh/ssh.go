@@ -14,6 +14,7 @@ import (
 	lm "github.com/charmbracelet/wish/logging"
 	"github.com/pspiagicw/goreland"
 	"github.com/pspiagicw/shog/pkg/argparse"
+	"github.com/pspiagicw/shog/pkg/content"
 	"github.com/pspiagicw/shog/pkg/tui"
 )
 
@@ -44,11 +45,12 @@ func startServer(server *ssh.Server, done chan os.Signal) {
 	go listenAndServe(server, done)
 }
 func createSerer(args *argparse.Args) *ssh.Server {
+	blogs := content.GetBlogs(args)
 	s, err := wish.NewServer(
 		wish.WithAddress("localhost:2323"),
 		wish.WithHostKeyPath(".ssh/term_info"),
 		wish.WithMiddleware(
-			bm.Middleware(tui.SSHEntry),
+			bm.Middleware(tui.EntryGenerator(args, blogs)),
 			lm.Middleware(),
 		),
 	)

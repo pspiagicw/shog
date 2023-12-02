@@ -7,8 +7,11 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
+	"github.com/pspiagicw/goreland"
+	"github.com/pspiagicw/shog/pkg/argparse"
 	"github.com/pspiagicw/shog/pkg/content"
 )
 
@@ -18,7 +21,6 @@ const (
 )
 
 type model struct {
-	items        []list.Item
 	term         string
 	width        int
 	height       int
@@ -26,6 +28,7 @@ type model struct {
 	selected     list.Item
 	screenType   int
 	blogViewport viewport.Model
+	blogs        []content.Blog
 }
 
 func (m model) Init() tea.Cmd {
@@ -49,9 +52,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			if m.screenType == homeScreen {
-				m.selected = m.items[m.list.Index()]
+				m.selected = m.blogs[m.list.Index()]
 				m.screenType = blogScreen
-				m.blogViewport.SetContent(content.GetContentMatter(m.width))
+				content := m.blogs[m.list.Index()].Content
+				m.blogViewport.SetContent(renderContent(m.width, content))
+
 			}
 		}
 	}
@@ -66,6 +71,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+func renderContent(width int, content string) string {
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithStyles(glamour.DraculaStyleConfig),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		goreland.LogError("Error initializing glamour")
+	}
+
+	str, err := renderer.Render(content)
+	if err != nil {
+		goreland.LogError("Error rendering content")
+		return "Error rendering content!"
+	}
+
+	return str
+
+}
 func (m model) View() string {
 	view := strings.Builder{}
 	switch m.screenType {
@@ -78,28 +101,37 @@ func (m model) View() string {
 	}
 	return view.String()
 }
-func NewModel(pty ssh.Pty) model {
-	items := content.GetContent()
+func generateItems(blogs []content.Blog) []list.Item {
+	items := []list.Item{}
+	for _, blog := range blogs {
+		items = append(items, blog)
+	}
+	return items
+}
+func NewModel(pty ssh.Pty, blogs []content.Blog) model {
+	items := generateItems(blogs)
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	v := viewport.New(pty.Window.Width, pty.Window.Height)
 	m := model{
-		items:        items,
 		term:         pty.Term,
 		width:        pty.Window.Width,
 		height:       pty.Window.Height,
 		list:         l,
 		screenType:   homeScreen,
 		blogViewport: v,
+		blogs:        blogs,
 	}
 	return m
 
 }
-func SSHEntry(s ssh.Session) (tea.Model, []tea.ProgramOption) {
-	pty, _, active := s.Pty()
-	if !active {
-		wish.Fatalln(s, "no active terminal , skipping")
-		return nil, nil
-	}
+func EntryGenerator(args *argparse.Args, blogs []content.Blog) func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
+	return func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
+		pty, _, active := s.Pty()
+		if !active {
+			wish.Fatalln(s, "no active terminal , skipping")
+			return nil, nil
+		}
 
-	return NewModel(pty), []tea.ProgramOption{tea.WithAltScreen()}
+		return NewModel(pty, blogs), []tea.ProgramOption{tea.WithAltScreen()}
+	}
 }
