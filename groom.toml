@@ -1,0 +1,10 @@
+[task.build]
+description = "Build the project"
+command = "go build ."
+
+[task.run]
+description = "Run the project"
+command = "./shog --content-dir ~/code/other-projects/blog/content"
+depends = [
+    "build"
+]
