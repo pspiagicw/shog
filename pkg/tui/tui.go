@@ -17,7 +17,8 @@ import (
 
 const (
 	homeScreen = iota
-	blogScreen
+	listScreen
+    blogScreen
 )
 
 type model struct {

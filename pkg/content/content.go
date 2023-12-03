@@ -17,19 +17,19 @@ type Blog struct {
 	Content string
 }
 type FrontMatter struct {
-    BlogTitle  string `toml:"title"`
-    Author     []string `toml:"authors"`
-	Tags       []string
-	Date       string
-	Categories []string
-	Draft      bool
+	BlogTitle  string   `toml:"title"`
+	Author     []string `toml:"authors"`
+	Tags       []string `toml:"tags"`
+	Date       string   `toml:"date"`
+	Categories []string `toml:"categories"`
+	Draft      bool     `toml:"draft"`
 }
 
 func (b Blog) Title() string       { return b.BlogTitle }
 func (b Blog) Description() string { return b.Filepath }
 func (b Blog) FilterValue() string { return b.BlogTitle }
 
-func parseFrontMatter(content string) *FrontMatter {
+func parseFile(content string) *FrontMatter {
 	var matter FrontMatter
 	_, err := frontmatter.Parse(strings.NewReader(content), &matter)
 	if err != nil {
@@ -44,9 +44,10 @@ func GetBlogs(args *argparse.Args) []Blog {
 		if err != nil {
 			return nil
 		}
-		if !info.IsDir() {
-			content := readFile(file)
-			frontMatter := parseFrontMatter(content)
+		content := readFile(file)
+		frontMatter := parseFile(content)
+		fmt.Println(content)
+		if !info.IsDir() && frontMatter.BlogTitle != "" {
 			items = append(items, Blog{
 				FrontMatter: *frontMatter,
 				Content:     content,
