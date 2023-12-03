@@ -1,35 +1,34 @@
 package tui
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
-	"github.com/pspiagicw/goreland"
 	"github.com/pspiagicw/shog/pkg/argparse"
 	"github.com/pspiagicw/shog/pkg/content"
 )
 
+type ScreenType int
+
 const (
-	homeScreen = iota
+	homeScreen ScreenType = iota
 	listScreen
-    blogScreen
+	blogScreen
 )
 
 type model struct {
-	term         string
-	width        int
-	height       int
-	list         list.Model
-	selected     list.Item
-	screenType   int
-	blogViewport viewport.Model
-	blogs        []content.Blog
+	width         int
+	height        int
+	list          list.Model
+	selected      content.Blog
+	screenType    ScreenType
+	blogViewport  viewport.Model
+	blogs         []content.Blog
+	args          *argparse.Args
+	homeViewport  viewport.Model
+	splashContent string
 }
 
 func (m model) Init() tea.Cmd {
@@ -43,6 +42,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetSize(m.width, m.height)
 		m.blogViewport.Height = m.height
 		m.blogViewport.Width = m.width
+		m.homeViewport.Height = m.height
+		m.homeViewport.Width = m.width
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
@@ -72,35 +73,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func renderContent(width int, content string) string {
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithStyles(glamour.DraculaStyleConfig),
-		glamour.WithWordWrap(width),
-	)
-	if err != nil {
-		goreland.LogError("Error initializing glamour")
-	}
-
-	str, err := renderer.Render(content)
-	if err != nil {
-		goreland.LogError("Error rendering content")
-		return "Error rendering content!"
-	}
-
-	return str
-
-}
 func (m model) View() string {
-	view := strings.Builder{}
 	switch m.screenType {
 	case homeScreen:
-		view.WriteString(m.list.View())
-		view.WriteString(fmt.Sprintf("\n%q\n", m.selected))
+		return m.viewHomeScreen()
+	case listScreen:
+		return m.viewListScreen()
 	case blogScreen:
-		view.WriteString(m.blogViewport.View())
-		view.WriteString(fmt.Sprintf("\n%q\n", m.selected))
+		return m.viewBlogScreen()
 	}
-	return view.String()
+	return ""
 }
 func generateItems(blogs []content.Blog) []list.Item {
 	items := []list.Item{}
@@ -109,23 +91,26 @@ func generateItems(blogs []content.Blog) []list.Item {
 	}
 	return items
 }
-func NewModel(pty ssh.Pty, blogs []content.Blog) model {
+func NewModel(pty ssh.Pty, blogs []content.Blog, splash string) model {
 	items := generateItems(blogs)
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	v := viewport.New(pty.Window.Width, pty.Window.Height)
+	h := viewport.New(pty.Window.Width, pty.Window.Height)
+	h.SetContent(splash)
 	m := model{
-		term:         pty.Term,
-		width:        pty.Window.Width,
-		height:       pty.Window.Height,
-		list:         l,
-		screenType:   homeScreen,
-		blogViewport: v,
-		blogs:        blogs,
+		width:         pty.Window.Width,
+		height:        pty.Window.Height,
+		list:          l,
+		screenType:    homeScreen,
+		blogViewport:  v,
+		blogs:         blogs,
+		homeViewport:  h,
+		splashContent: splash,
 	}
 	return m
 
 }
-func EntryGenerator(args *argparse.Args, blogs []content.Blog) func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
+func EntryGenerator(args *argparse.Args, blogs []content.Blog, splash string) func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 	return func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 		pty, _, active := s.Pty()
 		if !active {
@@ -133,6 +118,6 @@ func EntryGenerator(args *argparse.Args, blogs []content.Blog) func(s ssh.Sessio
 			return nil, nil
 		}
 
-		return NewModel(pty, blogs), []tea.ProgramOption{tea.WithAltScreen()}
+		return NewModel(pty, blogs, splash), []tea.ProgramOption{tea.WithAltScreen()}
 	}
 }

@@ -46,11 +46,12 @@ func startServer(server *ssh.Server, done chan os.Signal) {
 }
 func createSerer(args *argparse.Args) *ssh.Server {
 	blogs := content.GetBlogs(args)
+    splash := content.GetSplash(args)
 	s, err := wish.NewServer(
 		wish.WithAddress("localhost:2323"),
 		wish.WithHostKeyPath(".ssh/term_info"),
 		wish.WithMiddleware(
-			bm.Middleware(tui.EntryGenerator(args, blogs)),
+			bm.Middleware(tui.EntryGenerator(args, blogs, splash)),
 			lm.Middleware(),
 		),
 	)

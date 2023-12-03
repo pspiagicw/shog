@@ -11,6 +11,14 @@ import (
 	"github.com/pspiagicw/shog/pkg/argparse"
 )
 
+func GetSplash(args *argparse.Args) string {
+	contents, err := os.ReadFile(args.Splash)
+	if err != nil {
+		return DEFAULT_SPLASH
+	}
+	return string(contents)
+}
+
 type Blog struct {
 	Filepath string
 	FrontMatter
@@ -44,9 +52,10 @@ func GetBlogs(args *argparse.Args) []Blog {
 		if err != nil {
 			return nil
 		}
-		content := readFile(file)
+		content, err := readFile(file)
+        if err != nil {
+        }
 		frontMatter := parseFile(content)
-		fmt.Println(content)
 		if !info.IsDir() && frontMatter.BlogTitle != "" {
 			items = append(items, Blog{
 				FrontMatter: *frontMatter,
@@ -62,10 +71,10 @@ func GetBlogs(args *argparse.Args) []Blog {
 	return items
 }
 
-func readFile(file string) string {
+func readFile(file string) (string, error) {
 	contents, err := os.ReadFile(file)
 	if err != nil {
-		return ""
+		return "", nil
 	}
-	return string(contents)
+	return string(contents), nil
 }
