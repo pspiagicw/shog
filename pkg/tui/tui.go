@@ -2,8 +2,8 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
 	"github.com/pspiagicw/shog/pkg/argparse"
@@ -12,78 +12,68 @@ import (
 
 type ScreenType int
 
+var displayStyle lipgloss.Style = lipgloss.NewStyle().Padding(2)
+
 const (
-	homeScreen ScreenType = iota
+	splashScreen ScreenType = iota
 	listScreen
 	blogScreen
 )
 
-type model struct {
-	width         int
-	height        int
-	list          list.Model
-	selected      content.Blog
-	screenType    ScreenType
-	blogViewport  viewport.Model
-	blogs         []content.Blog
-	args          *argparse.Args
-	homeViewport  viewport.Model
-	splashContent string
+type Model struct {
+	width        *int
+	height       *int
+	args         *argparse.Args
+	screenType   *ScreenType
+	blogList     *BlogList
+	splashViewer *SplashViewer
+	blogViewer   *BlogViewer
 }
 
-func (m model) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return nil
 }
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) SetSize(width, height int) []tea.Cmd {
+	cmds := []tea.Cmd{}
+	cmds = append(cmds, m.blogViewer.SetSize(width, height-4))
+	cmds = append(cmds, m.blogList.SetSize(width, height-4))
+	cmds = append(cmds, m.splashViewer.SetSize(width, height-4))
+
+	return cmds
+}
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmds := []tea.Cmd{}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.height = msg.Height
-		m.width = msg.Width
-		m.list.SetSize(m.width, m.height)
-		m.blogViewport.Height = m.height
-		m.blogViewport.Width = m.width
-		m.homeViewport.Height = m.height
-		m.homeViewport.Width = m.width
+		height, width := msg.Height, msg.Width
+		// width := msg.Width - displayStyle.GetMarginLeft() - displayStyle.GetMarginRight()
+		// height := msg.Width - displayStyle.GetMarginBottom() - displayStyle.GetMarginTop()
+		*m.height = height
+		*m.width = width
+		cmds = append(cmds, m.SetSize(width, height)...)
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
-			if m.screenType != homeScreen {
-				m.screenType = homeScreen
-				return m, nil
-			}
+		case "ctrl+c":
 			return m, tea.Quit
+		case "q":
+			cmds = append(cmds, m.backPressed())
 		case "enter":
-			if m.screenType == homeScreen {
-				m.selected = m.blogs[m.list.Index()]
-				m.screenType = blogScreen
-				content := m.blogs[m.list.Index()].Content
-				m.blogViewport.SetContent(renderContent(m.width, content))
-
-			}
+			cmds = append(cmds, m.selectItem())
+		default:
+			m.handleKeybinding(msg)
 		}
 	}
-	if m.screenType == homeScreen {
-		l, cmd := m.list.Update(msg)
-		m.list = l
-		return m, cmd
+	if *m.screenType == listScreen {
+		cmds = append(cmds, m.blogList.Update(msg))
+	} else if *m.screenType == splashScreen {
+		cmds = append(cmds, m.splashViewer.Update(msg))
 	} else {
-		v, cmd := m.blogViewport.Update(msg)
-		m.blogViewport = v
-		return m, cmd
+		cmds = append(cmds, m.blogViewer.Update(msg))
 	}
+	return m, tea.Batch(cmds...)
 }
 
-func (m model) View() string {
-	switch m.screenType {
-	case homeScreen:
-		return m.viewHomeScreen()
-	case listScreen:
-		return m.viewListScreen()
-	case blogScreen:
-		return m.viewBlogScreen()
-	}
-	return ""
-}
 func generateItems(blogs []content.Blog) []list.Item {
 	items := []list.Item{}
 	for _, blog := range blogs {
@@ -91,21 +81,20 @@ func generateItems(blogs []content.Blog) []list.Item {
 	}
 	return items
 }
-func NewModel(pty ssh.Pty, blogs []content.Blog, splash string) model {
-	items := generateItems(blogs)
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	v := viewport.New(pty.Window.Width, pty.Window.Height)
-	h := viewport.New(pty.Window.Width, pty.Window.Height)
-	h.SetContent(splash)
-	m := model{
-		width:         pty.Window.Width,
-		height:        pty.Window.Height,
-		list:          l,
-		screenType:    homeScreen,
-		blogViewport:  v,
-		blogs:         blogs,
-		homeViewport:  h,
-		splashContent: splash,
+func NewModel(pty ssh.Pty, blogs []content.Blog, splash string, args *argparse.Args) Model {
+	width, height := pty.Window.Width, pty.Window.Height
+	bl := newBlogList(blogs, width, height)
+	bv := newBlogViewer(width, height)
+	sv := newSplashViewer(width, height, splash)
+	var screen ScreenType = 0
+	m := Model{
+		width:        &pty.Window.Width,
+		height:       &pty.Window.Height,
+		blogList:     bl,
+		blogViewer:   bv,
+		splashViewer: sv,
+		screenType:   &screen,
+		args:         args,
 	}
 	return m
 
@@ -118,6 +107,6 @@ func EntryGenerator(args *argparse.Args, blogs []content.Blog, splash string) fu
 			return nil, nil
 		}
 
-		return NewModel(pty, blogs, splash), []tea.ProgramOption{tea.WithAltScreen()}
+		return NewModel(pty, blogs, splash, args), []tea.ProgramOption{tea.WithAltScreen()}
 	}
 }

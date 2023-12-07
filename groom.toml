@@ -4,7 +4,7 @@ command = "go build ."
 
 [task.run]
 description = "Run the project"
-command = "./shog --content-dir /home/pspiagicw/code/other-projects/blog/content"
+command = "./shog --content-dir /home/pspiagicw/code/other-projects/blog/repo/content"
 depends = [
     "build"
 ]
