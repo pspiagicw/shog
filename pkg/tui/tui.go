@@ -3,7 +3,6 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
 	"github.com/pspiagicw/shog/pkg/argparse"
@@ -11,8 +10,6 @@ import (
 )
 
 type ScreenType int
-
-var displayStyle lipgloss.Style = lipgloss.NewStyle().Padding(2)
 
 const (
 	splashScreen ScreenType = iota
@@ -23,6 +20,8 @@ const (
 type Model struct {
 	width        *int
 	height       *int
+	actualWidth  int
+	actualHeight int
 	args         *argparse.Args
 	screenType   *ScreenType
 	blogList     *BlogList
@@ -35,9 +34,14 @@ func (m Model) Init() tea.Cmd {
 }
 func (m Model) SetSize(width, height int) []tea.Cmd {
 	cmds := []tea.Cmd{}
-	cmds = append(cmds, m.blogViewer.SetSize(width, height-4))
-	cmds = append(cmds, m.blogList.SetSize(width, height-4))
-	cmds = append(cmds, m.splashViewer.SetSize(width, height-4))
+    headerHeight := 2
+	actualWidth := width - paddingLeft - paddingRight
+	actualHeight := height - paddingTop - headerHeight
+	m.actualWidth = actualWidth
+	m.actualHeight = actualHeight
+	cmds = append(cmds, m.blogViewer.SetSize(actualWidth, actualHeight))
+	cmds = append(cmds, m.blogList.SetSize(actualWidth, actualHeight))
+	cmds = append(cmds, m.splashViewer.SetSize(actualWidth, actualHeight))
 
 	return cmds
 }
@@ -47,8 +51,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		height, width := msg.Height, msg.Width
-		// width := msg.Width - displayStyle.GetMarginLeft() - displayStyle.GetMarginRight()
-		// height := msg.Width - displayStyle.GetMarginBottom() - displayStyle.GetMarginTop()
 		*m.height = height
 		*m.width = width
 		cmds = append(cmds, m.SetSize(width, height)...)
@@ -56,7 +58,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "q":
+		case "b":
 			cmds = append(cmds, m.backPressed())
 		case "enter":
 			cmds = append(cmds, m.selectItem())

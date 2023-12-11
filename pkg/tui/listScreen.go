@@ -32,7 +32,6 @@ func (b *BlogList) Update(msg tea.Msg) tea.Cmd {
 func (m Model) viewListScreen() string {
 	view := strings.Builder{}
 	view.WriteString(m.blogList.blogList.View())
-	view.WriteString(fmt.Sprintf("\n%q\n", m.blogList.selected))
 	return view.String()
 }
 func (b *BlogList) SetSize(width, height int) tea.Cmd {
