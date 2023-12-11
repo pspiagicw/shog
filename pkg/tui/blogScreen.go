@@ -27,7 +27,7 @@ func (b *BlogViewer) SetBlog(width int, blog content.Blog) tea.Cmd {
 func (b *BlogViewer) Update(msg tea.Msg) tea.Cmd {
 	v, cmd := b.blogViewport.Update(msg)
 	b.blogViewport = v
-    return cmd
+	return cmd
 
 }
 func (b *BlogViewer) SetSize(width, height int) tea.Cmd {

@@ -1,6 +1,13 @@
 [task.build]
 description = "Build the project"
 command = "go build ."
+depends = [
+    "format"
+]
+
+[task.format]
+command = "go fmt ./..."
+description = "Format the project."
 
 [task.run]
 description = "Run the project"

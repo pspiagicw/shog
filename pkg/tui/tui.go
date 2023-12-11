@@ -34,7 +34,7 @@ func (m Model) Init() tea.Cmd {
 }
 func (m Model) SetSize(width, height int) []tea.Cmd {
 	cmds := []tea.Cmd{}
-    headerHeight := 2
+	headerHeight := 2
 	actualWidth := width - paddingLeft - paddingRight
 	actualHeight := height - paddingTop - headerHeight
 	m.actualWidth = actualWidth

@@ -8,9 +8,8 @@ import (
 	"github.com/muesli/reflow/truncate"
 )
 
-
 func (m Model) View() string {
-    var screen string
+	var screen string
 	switch *m.screenType {
 	case listScreen:
 		fmt.Println("You are viewing a list screen!")
@@ -22,9 +21,9 @@ func (m Model) View() string {
 		fmt.Println("You are viewing a blog screen!")
 		screen = m.viewBlogScreen()
 	}
-    screen = lipgloss.JoinVertical(0, m.getHorizontalLine(), screen)
-    screen = lipgloss.JoinVertical(0, m.getHeader(), screen)
-    return displayStyle.Render(screen)
+	screen = lipgloss.JoinVertical(0, m.getHorizontalLine(), screen)
+	screen = lipgloss.JoinVertical(0, m.getHeader(), screen)
+	return displayStyle.Render(screen)
 }
 func (m Model) getHeader() string {
 	actualWidth := *m.width - nameStyle.GetPaddingLeft() - nameStyle.GetPaddingRight()
@@ -33,10 +32,10 @@ func (m Model) getHeader() string {
 	return truncate.String(displayString, uint(actualWidth-2))
 }
 func (m Model) getHorizontalLine() string {
-    var line strings.Builder
+	var line strings.Builder
 
-    for i := 0; i < *m.width; i++ {
-        line.WriteString(dash)
-    }
-    return line.String()
+	for i := 0; i < *m.width; i++ {
+		line.WriteString(dash)
+	}
+	return line.String()
 }

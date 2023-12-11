@@ -53,8 +53,8 @@ func GetBlogs(args *argparse.Args) []Blog {
 			return nil
 		}
 		content, err := readFile(file)
-        if err != nil {
-        }
+		if err != nil {
+		}
 		frontMatter := parseFile(content)
 		if !info.IsDir() && frontMatter.BlogTitle != "" {
 			items = append(items, Blog{

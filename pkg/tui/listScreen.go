@@ -65,6 +65,6 @@ func newBlogList(blogs []content.Blog, width, height int) *BlogList {
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	return &BlogList{
 		blogList: l,
-        blogs: blogs,
+		blogs:    blogs,
 	}
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type SplashViewer struct {
-	splashContent  string
+	splashContent string
 }
 
 func (m Model) viewSplashScreen() string {
@@ -18,16 +18,16 @@ func (m Model) viewSplashScreen() string {
 func newSplashViewer(width int, height int, splash string) *SplashViewer {
 
 	return &SplashViewer{
-		splashContent:  splash,
+		splashContent: splash,
 	}
 }
 func (s *SplashViewer) SetSize(width, height int) tea.Cmd {
 	// s.splashViewport.Width = width
 	// s.splashViewport.Height = height
 	// return viewport.Sync(s.splashViewport)
-    return nil
+	return nil
 
 }
 func (s *SplashViewer) Update(msg tea.Msg) tea.Cmd {
-    return nil
+	return nil
 }

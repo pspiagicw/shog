@@ -9,11 +9,11 @@ import (
 func (m Model) backPressed() tea.Cmd {
 	if *m.screenType == blogScreen {
 		*m.screenType = listScreen
-        return nil
+		return nil
 	} else if *m.screenType == listScreen {
 		*m.screenType = splashScreen
-        return nil
-	} else if *m.screenType == splashScreen{
+		return nil
+	} else if *m.screenType == splashScreen {
 		return tea.Quit
 	}
 	return nil
