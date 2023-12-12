@@ -20,9 +20,8 @@ func (m Model) viewBlogScreen() string {
 	// view.WriteString(fmt.Sprintf("\n%q\n", ))
 	return view.String()
 }
-func (b *BlogViewer) SetBlog(width int, blog content.Blog) tea.Cmd {
+func (b *BlogViewer) SetBlog(width int, blog content.Blog) {
 	b.blogViewport.SetContent(renderContent(width, blog.Content))
-	return nil
 }
 func (b *BlogViewer) Update(msg tea.Msg) tea.Cmd {
 	v, cmd := b.blogViewport.Update(msg)

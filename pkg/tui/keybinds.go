@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"fmt"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -18,13 +16,10 @@ func (m Model) backPressed() tea.Cmd {
 	}
 	return nil
 }
-func (m Model) selectItem() tea.Cmd {
-	if *m.screenType == listScreen {
-		blog := m.blogList.SelectBlog()
-		*m.screenType = blogScreen
-		return m.blogViewer.SetBlog(m.actualWidth, blog)
-	}
-	return nil
+func (m Model) selectItem() {
+	blog := m.blogList.SelectBlog()
+	*m.screenType = blogScreen
+	m.blogViewer.SetBlog(m.actualWidth, blog)
 }
 func (m Model) handleKeybinding(msg tea.KeyMsg) tea.Cmd {
 	if *m.screenType == splashScreen {
@@ -38,12 +33,23 @@ func (m Model) handleKeybinding(msg tea.KeyMsg) tea.Cmd {
 }
 func (m Model) handleSplashKeybindings(msg tea.KeyMsg) {
 	switch msg.String() {
-	case "B":
-		fmt.Println("You pressed 'b'")
+	case "enter":
 		*m.screenType = listScreen
+	case "q":
+		m.backPressed()
 	}
 }
 func (m Model) handleListKeybindings(msg tea.KeyMsg) {
+	switch msg.String() {
+	case "q":
+		m.backPressed()
+	case "enter":
+		m.selectItem()
+	}
 }
 func (m Model) handleBlogKeybindings(msg tea.KeyMsg) {
+	switch msg.String() {
+	case "q":
+		m.backPressed()
+	}
 }

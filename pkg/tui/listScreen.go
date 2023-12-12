@@ -3,10 +3,12 @@ package tui
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/pspiagicw/shog/pkg/content"
 )
 
@@ -47,7 +49,7 @@ func (b BlogDelegate) Height() int {
 }
 
 func (b BlogDelegate) Spacing() int {
-	return 2
+	return 1
 }
 
 func (b BlogDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
@@ -55,14 +57,24 @@ func (b BlogDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 }
 func (b BlogDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	blog := item.(content.Blog)
-	s := strings.Builder{}
-	s.WriteString(blog.BlogTitle)
-	s.WriteString(blog.BlogTitle)
-	_, _ = fmt.Fprintf(w, s.String())
+	// s := strings.Builder{}
+	title := titleStyle.Render(blog.BlogTitle)
+	basepath := filepath.Base(blog.Filepath)
+	info := basepath
+	info = infoStyle.Render(basepath)
+	// info := filepath.Abs(blog.Filepath)
+	if m.Index() == index {
+		title = selectedStyle.Render(blog.BlogTitle)
+	}
+	listItem := itemStyle.Render(lipgloss.JoinVertical(lipgloss.Left, title, info))
+	fmt.Fprint(w, listItem)
+	// s.WriteString(blog.BlogTitle)
+	// s.WriteString(blog.BlogTitle)
+	// _, _ = fmt.Fprintf(w, s.String())
 }
 func newBlogList(blogs []content.Blog, width, height int) *BlogList {
 	items := generateItems(blogs)
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	l := list.New(items, BlogDelegate{}, 0, 0)
 	return &BlogList{
 		blogList: l,
 		blogs:    blogs,

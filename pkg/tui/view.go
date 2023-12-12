@@ -16,7 +16,7 @@ func (m Model) View() string {
 		screen = m.viewListScreen()
 	case splashScreen:
 		fmt.Println("You are viewing a splash screen!")
-		return m.viewSplashScreen()
+		screen = m.viewSplashScreen()
 	case blogScreen:
 		fmt.Println("You are viewing a blog screen!")
 		screen = m.viewBlogScreen()

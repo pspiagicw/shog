@@ -58,10 +58,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "b":
-			cmds = append(cmds, m.backPressed())
-		case "enter":
-			cmds = append(cmds, m.selectItem())
 		default:
 			m.handleKeybinding(msg)
 		}

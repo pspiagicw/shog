@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/adrg/frontmatter"
 	"github.com/pspiagicw/shog/pkg/argparse"
 )
@@ -39,7 +40,9 @@ func (b Blog) FilterValue() string { return b.BlogTitle }
 
 func parseFile(content string) *FrontMatter {
 	var matter FrontMatter
-	_, err := frontmatter.Parse(strings.NewReader(content), &matter)
+	_, err := frontmatter.MustParse(strings.NewReader(content), &matter, []*frontmatter.Format{
+		frontmatter.NewFormat("+++", "+++", toml.Unmarshal),
+	}...)
 	if err != nil {
 		return &matter
 	}
@@ -50,13 +53,14 @@ func GetBlogs(args *argparse.Args) []Blog {
 	fmt.Println(args.ContentDir)
 	err := filepath.Walk(args.ContentDir, func(file string, info fs.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		content, err := readFile(file)
 		if err != nil {
+			return err
 		}
 		frontMatter := parseFile(content)
-		if !info.IsDir() && frontMatter.BlogTitle != "" {
+		if !info.IsDir() {
 			items = append(items, Blog{
 				FrontMatter: *frontMatter,
 				Content:     content,
