@@ -508,48 +508,50 @@ func (m model) footerContext() string {
 }
 
 func (m model) projectIndexPage() page {
-	items := make([]string, 0, len(m.content.Projects)*2)
+	items := make([]string, 0, len(m.content.Projects)*3)
 	for i, project := range m.content.Projects {
-		prefix := "  "
+		marker := " "
 		if i == m.projectIndex {
-			prefix = "> "
+			marker = ">"
 		}
 
-		items = append(items, renderIndexEntryLine(prefix, project.Title, i == m.projectIndex, true))
-		items = append(items, renderIndexEntryLine("  ", firstLine(project.Summary), i == m.projectIndex, false))
+		items = append(items, fmt.Sprintf("%s ## %s", marker, project.Title))
+		items = append(items, dropFirstWord(firstLine(project.Summary)))
+		items = append(items, "")
 	}
 
 	return page{
 		Title:    "Projects",
 		Summary:  "Project index",
 		Content:  strings.TrimSpace(strings.Join(items, "\n")),
-		Markdown: false,
+		Markdown: true,
 	}
 }
 
 func (m model) blogIndexPage() page {
 	items := make([]string, 0, len(m.content.Blogs)*3)
 	for i, post := range m.content.Blogs {
-		prefix := "  "
+		marker := " "
 		if i == m.blogIndex {
-			prefix = "> "
+			marker = ">"
 		}
 
 		line := post.Title
 		if post.Meta != "" {
 			line = fmt.Sprintf("%s (%s)", line, post.Meta)
 		}
-		items = append(items, renderIndexEntryLine(prefix, line, i == m.blogIndex, true))
+		items = append(items, fmt.Sprintf("%s ## %s", marker, line))
 		if post.Summary != "" {
-			items = append(items, renderIndexEntryLine("  ", firstLine(post.Summary), i == m.blogIndex, false))
+			items = append(items, firstLine(post.Summary))
 		}
+		items = append(items, "")
 	}
 
 	return page{
 		Title:    "Blog",
 		Summary:  "Blog index",
 		Content:  strings.TrimSpace(strings.Join(items, "\n")),
-		Markdown: false,
+		Markdown: true,
 	}
 }
 
@@ -592,17 +594,11 @@ func firstLine(value string) string {
 	return lines[0]
 }
 
-func renderIndexEntryLine(prefix, value string, selected, title bool) string {
-	style := indexSummaryStyle
-	if title {
-		style = indexTitleStyle
-	}
-	if selected && title {
-		style = indexTitleSelectedStyle
-	}
-	if selected && !title {
-		style = indexSummarySelectedStyle
+func dropFirstWord(value string) string {
+	words := strings.Fields(strings.TrimSpace(value))
+	if len(words) <= 1 {
+		return value
 	}
 
-	return prefix + style.Render(value)
+	return strings.Join(words[1:], " ")
 }
