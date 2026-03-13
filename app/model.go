@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,6 +20,7 @@ type model struct {
 	width  int
 	height int
 	index  int
+	scroll int
 	pages  []page
 }
 
@@ -41,14 +43,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.clampScroll()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "right", "l", "n":
 			m.index = (m.index + 1) % len(m.pages)
+			m.scroll = 0
 		case "left", "h", "p":
 			m.index = (m.index - 1 + len(m.pages)) % len(m.pages)
+			m.scroll = 0
+		case "down", "j":
+			m.scroll++
+			m.clampScroll()
+		case "up", "k":
+			m.scroll--
+			m.clampScroll()
+		case "pgdown", "f", " ":
+			m.scroll += max(1, m.contentHeight()-1)
+			m.clampScroll()
+		case "pgup", "b":
+			m.scroll -= max(1, m.contentHeight()-1)
+			m.clampScroll()
+		case "home", "g":
+			m.scroll = 0
+		case "end", "G":
+			m.scroll = m.maxScroll()
 		}
 	}
 
@@ -61,25 +82,20 @@ func (m model) View() string {
 	}
 
 	current := m.pages[m.index]
-	header := headerStyle.Render("shog")
-	title := titleStyle.Render(current.Title)
-	summary := summaryStyle.Render(current.Summary)
+	contentWidth := m.contentWidth()
+	lines := m.pageLines(current, contentWidth)
+	start := min(m.scroll, max(0, len(lines)-m.contentHeight()))
+	end := min(len(lines), start+m.contentHeight())
+	visible := append([]string{}, lines[start:end]...)
 
-	body := make([]string, 0, len(current.Body))
-	for _, line := range current.Body {
-		body = append(body, bodyStyle.Render(line))
+	for len(visible) < m.contentHeight() {
+		visible = append(visible, "")
 	}
 
-	footer := footerStyle.Render(fmt.Sprintf("Page %d/%d  •  h/left prev  •  l/right next  •  q quit", m.index+1, len(m.pages)))
-	content := strings.Join([]string{
-		header,
-		title,
-		summary,
-		strings.Join(body, "\n"),
-		footer,
-	}, "\n\n")
-
-	return frameStyle.Width(max(60, m.width-4)).Render(content)
+	return frameStyle.
+		Width(m.frameWidth()).
+		Height(m.frameHeight()).
+		Render(strings.Join(visible, "\n"))
 }
 
 func seedPages() []page {
@@ -109,6 +125,7 @@ func seedPages() []page {
 				"Highlight a contrasting project here.",
 				"This can later become a richer card, timeline, or interactive selector.",
 				"A future blog page can slot into the same page list without changing the app shape.",
+				"A future blog page can slot into the same page list without changing the app shape.",
 			},
 		},
 	}
@@ -137,3 +154,150 @@ var (
 	footerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244"))
 )
+
+func (m model) pageLines(current page, width int) []string {
+	lines := []string{
+		headerStyle.Render("shog"),
+		"",
+	}
+
+	lines = append(lines, wrapStyled(current.Title, width, titleStyle)...)
+	lines = append(lines, "")
+	lines = append(lines, wrapStyled(current.Summary, width, summaryStyle)...)
+	lines = append(lines, "")
+
+	for i, line := range current.Body {
+		lines = append(lines, wrapStyled(line, width, bodyStyle)...)
+		if i < len(current.Body)-1 {
+			lines = append(lines, "")
+		}
+	}
+
+	lines = append(lines, "", footerStyle.Render(fmt.Sprintf(
+		"Page %d/%d  •  h/left prev  •  l/right next  •  j/k scroll  •  q quit",
+		m.index+1,
+		len(m.pages),
+	)))
+
+	return lines
+}
+
+func (m model) frameWidth() int {
+	if m.width <= 0 {
+		return 76
+	}
+
+	return max(60, m.width-4)
+}
+
+func (m model) frameHeight() int {
+	if m.height <= 0 {
+		return 20
+	}
+
+	return max(12, m.height-2)
+}
+
+func (m model) contentWidth() int {
+	return max(20, m.frameWidth()-frameStyle.GetHorizontalFrameSize())
+}
+
+func (m model) contentHeight() int {
+	return max(5, m.frameHeight()-frameStyle.GetVerticalFrameSize())
+}
+
+func (m model) maxScroll() int {
+	if len(m.pages) == 0 {
+		return 0
+	}
+
+	return max(0, len(m.pageLines(m.pages[m.index], m.contentWidth()))-m.contentHeight())
+}
+
+func (m *model) clampScroll() {
+	m.scroll = max(0, min(m.scroll, m.maxScroll()))
+}
+
+func wrapStyled(text string, width int, style lipgloss.Style) []string {
+	plain := wrapText(text, width)
+	lines := make([]string, 0, len(plain))
+	for _, line := range plain {
+		lines = append(lines, style.Width(width).Render(line))
+	}
+
+	return lines
+}
+
+func wrapText(text string, width int) []string {
+	if width <= 0 {
+		return []string{text}
+	}
+
+	paragraphs := strings.Split(text, "\n")
+	lines := make([]string, 0, len(paragraphs))
+
+	for _, paragraph := range paragraphs {
+		if paragraph == "" {
+			lines = append(lines, "")
+			continue
+		}
+
+		words := strings.Fields(paragraph)
+		if len(words) == 0 {
+			lines = append(lines, "")
+			continue
+		}
+
+		current := words[0]
+		for _, word := range words[1:] {
+			candidate := current + " " + word
+			if utf8.RuneCountInString(candidate) <= width {
+				current = candidate
+				continue
+			}
+
+			lines = append(lines, current)
+			current = word
+
+			for utf8.RuneCountInString(current) > width {
+				chunk, rest := splitAtWidth(current, width)
+				lines = append(lines, chunk)
+				current = rest
+			}
+		}
+
+		for utf8.RuneCountInString(current) > width {
+			chunk, rest := splitAtWidth(current, width)
+			lines = append(lines, chunk)
+			current = rest
+		}
+
+		lines = append(lines, current)
+	}
+
+	return lines
+}
+
+func splitAtWidth(text string, width int) (string, string) {
+	if utf8.RuneCountInString(text) <= width {
+		return text, ""
+	}
+
+	count := 0
+	for i := range text {
+		if count == width {
+			return text[:i], text[i:]
+		}
+		count++
+	}
+
+	return text, ""
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
