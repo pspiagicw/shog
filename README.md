@@ -2,6 +2,8 @@
 
 `shog` is a personal portfolio served as an SSH application.
 
+Note: This project is mostly vibe-coded!
+
 Instead of sending someone to a traditional website, `shog` opens a small terminal-native experience built with [Wish](https://github.com/charmbracelet/wish) and [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 The current version focuses on a simple, readable flow: an introduction page, project showcase pages, and a foundation that can later grow into blog and contact views.
 
