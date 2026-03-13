@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/ssh"
 )
@@ -131,6 +132,8 @@ var (
 
 	titleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("230")).
+			Background(lipgloss.Color("24")).
+			Padding(0, 1).
 			Bold(true)
 
 	summaryStyle = lipgloss.NewStyle().
@@ -165,7 +168,7 @@ func (m model) pageLines(current page, width int) []string {
 	lines = append(lines, "")
 	lines = append(lines, wrapStyled(current.Summary, width, summaryStyle)...)
 	lines = append(lines, "")
-	lines = append(lines, wrapStyled(current.Content, width, bodyStyle)...)
+	lines = append(lines, renderMarkdown(current.Content, width)...)
 	lines = append(lines, "", footerStyle.Render(fmt.Sprintf(
 		"%s  •  h/left prev tab  •  l/right next tab  •  j/k scroll  •  q quit",
 		m.footerContext(),
@@ -211,6 +214,28 @@ func wrapStyled(text string, width int, style lipgloss.Style) []string {
 	lines := make([]string, 0, len(plain))
 	for _, line := range plain {
 		lines = append(lines, style.Width(width).Render(line))
+	}
+
+	return lines
+}
+
+func renderMarkdown(text string, width int) []string {
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return wrapStyled(text, width, bodyStyle)
+	}
+
+	rendered, err := renderer.Render(strings.TrimSpace(text))
+	if err != nil {
+		return wrapStyled(text, width, bodyStyle)
+	}
+
+	lines := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+	if len(lines) == 0 {
+		return []string{""}
 	}
 
 	return lines
