@@ -137,11 +137,3 @@ var (
 	footerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244"))
 )
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
-}

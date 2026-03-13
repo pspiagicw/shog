@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"shog/internal/app"
+	"github.com/pspiagicw/shog/app"
 
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/wish"

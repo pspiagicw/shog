@@ -1,4 +1,4 @@
-module shog
+module github.com/pspiagicw/shog
 
 go 1.25.0
 
