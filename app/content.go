@@ -55,7 +55,14 @@ func loadContent(contentFS fs.FS) content {
 			readmeBody = strings.TrimSpace(string(loaded))
 		}
 
-		title, summary, body := projectPageContent(slug, repoURL, readmeBody)
+		title, summary, body, _ := parseMarkdownDocument(readmeBody)
+		if title == "" {
+			title = humanizeSlug(slug)
+		}
+		if summary == "" {
+			summary = repoURL
+		}
+
 		projects = append(projects, page{
 			Title:   title,
 			Summary: summary,
@@ -160,26 +167,6 @@ func projectSlug(repoURL string) string {
 	return filepath.Base(trimmed)
 }
 
-func projectPageContent(slug, repoURL, readme string) (string, string, string) {
-	_, _, trimmed := parseMarkdownDocument(readme)
-	if trimmed == "" {
-		return humanizeSlug(slug), repoURL, missingREADME(repoURL)
-	}
-
-	lines := strings.Split(trimmed, "\n")
-	title := humanizeSlug(slug)
-	if heading := firstMarkdownHeading(lines); heading != "" {
-		title = heading
-	}
-
-	summary := repoURL
-	if excerpt := firstMarkdownParagraph(lines); excerpt != "" {
-		summary = excerpt
-	}
-
-	return title, summary, trimmed
-}
-
 func firstMarkdownHeading(lines []string) string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -250,20 +237,21 @@ func loadBlogPages(contentFS fs.FS, dir string) []page {
 			continue
 		}
 
-		title, summary, body := parseMarkdownDocument(string(raw))
+		title, summary, body, meta := parseMarkdownDocument(string(raw))
 		slug := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
 		blogs = append(blogs, page{
 			Title:   fallback(title, humanizeSlug(slug)),
 			Summary: fallback(summary, "Blog post"),
 			Content: fallback(body, "Empty blog post."),
+			Meta:    meta,
 		})
 	}
 
 	return blogs
 }
 
-func parseMarkdownDocument(raw string) (string, string, string) {
-	title, summary, body := parseFrontMatter(raw)
+func parseMarkdownDocument(raw string) (string, string, string, string) {
+	title, summary, body, meta := parseFrontMatter(raw)
 	trimmedBody := strings.TrimSpace(body)
 	lines := strings.Split(trimmedBody, "\n")
 
@@ -275,36 +263,47 @@ func parseMarkdownDocument(raw string) (string, string, string) {
 		summary = firstMarkdownParagraph(lines)
 	}
 
-	return title, summary, trimmedBody
+	return title, summary, trimmedBody, meta
 }
 
-func parseFrontMatter(raw string) (string, string, string) {
+func parseFrontMatter(raw string) (string, string, string, string) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return "", "", ""
+		return "", "", "", ""
 	}
 
 	if strings.HasPrefix(trimmed, "+++\n") {
 		parts := strings.SplitN(trimmed, "\n+++\n", 2)
 		if len(parts) == 2 {
-			return frontMatterFields(parts[0]), frontMatterDescription(parts[0]), parts[1]
+			return frontMatterTitle(parts[0]), frontMatterDescription(parts[0]), parts[1], frontMatterDate(parts[0])
 		}
 	}
 
 	if strings.HasPrefix(trimmed, "---\n") {
 		parts := strings.SplitN(trimmed, "\n---\n", 2)
 		if len(parts) == 2 {
-			return frontMatterFields(parts[0]), frontMatterDescription(parts[0]), parts[1]
+			return frontMatterTitle(parts[0]), frontMatterDescription(parts[0]), parts[1], frontMatterDate(parts[0])
 		}
 	}
 
-	return "", "", raw
+	return "", "", raw, ""
 }
 
-func frontMatterFields(frontMatter string) string {
+func frontMatterTitle(frontMatter string) string {
 	for _, line := range strings.Split(frontMatter, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "title") {
+			return unquoteFrontMatterValue(trimmed)
+		}
+	}
+
+	return ""
+}
+
+func frontMatterDate(frontMatter string) string {
+	for _, line := range strings.Split(frontMatter, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "date") {
 			return unquoteFrontMatterValue(trimmed)
 		}
 	}

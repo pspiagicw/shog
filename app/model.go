@@ -16,6 +16,7 @@ type page struct {
 	Title   string
 	Summary string
 	Content string
+	Meta    string
 }
 
 type model struct {
@@ -24,6 +25,9 @@ type model struct {
 	activeTab    int
 	projectIndex int
 	blogIndex    int
+	projectList  bool
+	blogList     bool
+	showHelp     bool
 	scroll       int
 	content      content
 }
@@ -33,7 +37,9 @@ func NewModel(contentFS fs.FS) func(ssh.Session) (tea.Model, []tea.ProgramOption
 
 	return func(sess ssh.Session) (tea.Model, []tea.ProgramOption) {
 		m := model{
-			content: loadedContent,
+			content:     loadedContent,
+			projectList: true,
+			blogList:    true,
 		}
 
 		return m, []tea.ProgramOption{
@@ -54,14 +60,58 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.clampScroll()
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "?":
+			m.showHelp = !m.showHelp
+			m.scroll = 0
+			return m, nil
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		}
+
+		if m.showHelp {
+			return m.updateScrollableKey(msg.String()), nil
+		}
+
+		switch msg.String() {
 		case "right", "l", "tab":
 			m.activeTab = (m.activeTab + 1) % 3
+			m.projectList = true
+			m.blogList = true
 			m.scroll = 0
 		case "left", "h", "shift+tab":
 			m.activeTab = (m.activeTab + 2) % 3
+			m.projectList = true
+			m.blogList = true
 			m.scroll = 0
+		case "1":
+			m.activeTab = 0
+			m.projectList = true
+			m.blogList = true
+			m.scroll = 0
+		case "2":
+			m.activeTab = 1
+			m.projectList = true
+			m.scroll = 0
+		case "3":
+			m.activeTab = 2
+			m.blogList = true
+			m.scroll = 0
+		case "enter":
+			if m.activeTab == 1 {
+				m.projectList = false
+				m.scroll = 0
+			} else if m.activeTab == 2 {
+				m.blogList = false
+				m.scroll = 0
+			}
+		case "esc", "backspace":
+			if m.activeTab == 1 && !m.projectList {
+				m.projectList = true
+				m.scroll = 0
+			} else if m.activeTab == 2 && !m.blogList {
+				m.blogList = true
+				m.scroll = 0
+			}
 		case "n":
 			if m.activeTab == 1 {
 				m.projectIndex = (m.projectIndex + 1) % len(m.content.Projects)
@@ -78,35 +128,55 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.blogIndex = (m.blogIndex - 1 + len(m.content.Blogs)) % len(m.content.Blogs)
 				m.scroll = 0
 			}
-		case "1":
-			m.activeTab = 0
-			m.scroll = 0
-		case "2":
-			m.activeTab = 1
-			m.scroll = 0
-		case "3":
-			m.activeTab = 2
-			m.scroll = 0
 		case "down", "j":
-			m.scroll++
-			m.clampScroll()
+			if m.activeTab == 1 && m.projectList {
+				m.projectIndex = min(m.projectIndex+1, len(m.content.Projects)-1)
+				m.scroll = 0
+			} else if m.activeTab == 2 && m.blogList {
+				m.blogIndex = min(m.blogIndex+1, len(m.content.Blogs)-1)
+				m.scroll = 0
+			} else {
+				m = m.updateScrollableKey(msg.String())
+			}
 		case "up", "k":
-			m.scroll--
-			m.clampScroll()
-		case "pgdown", "f", " ":
-			m.scroll += max(1, m.contentHeight()-1)
-			m.clampScroll()
-		case "pgup", "b":
-			m.scroll -= max(1, m.contentHeight()-1)
-			m.clampScroll()
-		case "home", "g":
-			m.scroll = 0
-		case "end", "G":
-			m.scroll = m.maxScroll()
+			if m.activeTab == 1 && m.projectList {
+				m.projectIndex = max(m.projectIndex-1, 0)
+				m.scroll = 0
+			} else if m.activeTab == 2 && m.blogList {
+				m.blogIndex = max(m.blogIndex-1, 0)
+				m.scroll = 0
+			} else {
+				m = m.updateScrollableKey(msg.String())
+			}
+		default:
+			m = m.updateScrollableKey(msg.String())
 		}
 	}
 
 	return m, nil
+}
+
+func (m model) updateScrollableKey(key string) model {
+	switch key {
+	case "down", "j":
+		m.scroll++
+		m.clampScroll()
+	case "up", "k":
+		m.scroll--
+		m.clampScroll()
+	case "pgdown", "f", " ":
+		m.scroll += max(1, m.contentHeight()-1)
+		m.clampScroll()
+	case "pgup", "b":
+		m.scroll -= max(1, m.contentHeight()-1)
+		m.clampScroll()
+	case "home", "g":
+		m.scroll = 0
+	case "end", "G":
+		m.scroll = m.maxScroll()
+	}
+
+	return m
 }
 
 func (m model) View() string {
@@ -146,6 +216,10 @@ var (
 	summaryStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252"))
 
+	metaStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("246")).
+			Italic(true)
+
 	bodyStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("255"))
 
@@ -173,11 +247,17 @@ func (m model) pageLines(current page, width int) []string {
 
 	lines = append(lines, wrapStyled(current.Title, width, titleStyle)...)
 	lines = append(lines, "")
-	lines = append(lines, wrapStyled(current.Summary, width, summaryStyle)...)
-	lines = append(lines, "")
+	if current.Summary != "" {
+		lines = append(lines, wrapStyled(current.Summary, width, summaryStyle)...)
+		lines = append(lines, "")
+	}
+	if current.Meta != "" {
+		lines = append(lines, wrapStyled(current.Meta, width, metaStyle)...)
+		lines = append(lines, "")
+	}
 	lines = append(lines, renderMarkdown(current.Content, width)...)
 	lines = append(lines, "", footerStyle.Render(fmt.Sprintf(
-		"%s  •  h/left prev tab  •  l/right next tab  •  j/k scroll  •  q quit",
+		"%s  •  h/left prev tab  •  l/right next tab  •  ? help  •  q quit",
 		m.footerContext(),
 	)))
 
@@ -322,11 +402,29 @@ func min(a, b int) int {
 	return b
 }
 
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
 func (m model) currentPage() page {
+	if m.showHelp {
+		return m.helpPage()
+	}
+
 	switch m.activeTab {
 	case 1:
+		if m.projectList {
+			return m.projectIndexPage()
+		}
 		return m.content.Projects[m.projectIndex]
 	case 2:
+		if m.blogList {
+			return m.blogIndexPage()
+		}
 		return m.content.Blogs[m.blogIndex]
 	default:
 		return m.content.About
@@ -352,23 +450,102 @@ func (m model) renderTab(label string, index int) string {
 }
 
 func (m model) footerContext() string {
+	if m.showHelp {
+		return "Help  •  esc or ? close"
+	}
+
 	if m.activeTab == 2 {
-		return fmt.Sprintf(
-			"Tab %d/3  •  Post %d/%d  •  n/p switch post",
-			m.activeTab+1,
-			m.blogIndex+1,
-			len(m.content.Blogs),
-		)
+		if m.blogList {
+			return fmt.Sprintf("Tab %d/3  •  %d posts  •  j/k move  •  enter open", m.activeTab+1, len(m.content.Blogs))
+		}
+
+		return fmt.Sprintf("Tab %d/3  •  Post %d/%d  •  n/p switch post  •  esc back", m.activeTab+1, m.blogIndex+1, len(m.content.Blogs))
 	}
 
 	if m.activeTab != 1 {
 		return fmt.Sprintf("Tab %d/3  •  1/2/3 jump to tab", m.activeTab+1)
 	}
 
-	return fmt.Sprintf(
-		"Tab %d/3  •  Project %d/%d  •  n/p switch project",
-		m.activeTab+1,
-		m.projectIndex+1,
-		len(m.content.Projects),
-	)
+	if m.projectList {
+		return fmt.Sprintf("Tab %d/3  •  %d projects  •  j/k move  •  enter open", m.activeTab+1, len(m.content.Projects))
+	}
+
+	return fmt.Sprintf("Tab %d/3  •  Project %d/%d  •  n/p switch project  •  esc back", m.activeTab+1, m.projectIndex+1, len(m.content.Projects))
+}
+
+func (m model) projectIndexPage() page {
+	items := make([]string, 0, len(m.content.Projects)*3)
+	for i, project := range m.content.Projects {
+		prefix := "  "
+		if i == m.projectIndex {
+			prefix = "> "
+		}
+
+		items = append(items, fmt.Sprintf("%s%s", prefix, project.Title))
+		if project.Summary != "" {
+			items = append(items, fmt.Sprintf("    %s", project.Summary))
+		}
+		items = append(items, "")
+	}
+
+	return page{
+		Title:   "Projects",
+		Summary: "Project index",
+		Content: strings.TrimSpace(strings.Join(items, "\n")),
+	}
+}
+
+func (m model) blogIndexPage() page {
+	items := make([]string, 0, len(m.content.Blogs)*3)
+	for i, post := range m.content.Blogs {
+		prefix := "  "
+		if i == m.blogIndex {
+			prefix = "> "
+		}
+
+		line := fmt.Sprintf("%s%s", prefix, post.Title)
+		if post.Meta != "" {
+			line = fmt.Sprintf("%s (%s)", line, post.Meta)
+		}
+		items = append(items, line)
+		if post.Summary != "" {
+			items = append(items, fmt.Sprintf("    %s", post.Summary))
+		}
+		items = append(items, "")
+	}
+
+	return page{
+		Title:   "Blog",
+		Summary: "Blog index",
+		Content: strings.TrimSpace(strings.Join(items, "\n")),
+	}
+}
+
+func (m model) helpPage() page {
+	return page{
+		Title:   "Help",
+		Summary: "Keyboard shortcuts",
+		Content: strings.TrimSpace(strings.Join([]string{
+			"## Global",
+			"",
+			"- `1`, `2`, `3`: jump to About, Projects, Blog",
+			"- `h` / `left`, `l` / `right`: switch tabs",
+			"- `?`: toggle help",
+			"- `q`: quit",
+			"",
+			"## Index views",
+			"",
+			"- `j` / `k`: move selection",
+			"- `enter`: open selected item",
+			"",
+			"## Detail views",
+			"",
+			"- `n` / `p`: next or previous project/post",
+			"- `j` / `k`: scroll",
+			"- `space` / `f`: page down",
+			"- `b`: page up",
+			"- `g` / `G`: top / bottom",
+			"- `esc` / `backspace`: return to index",
+		}, "\n")),
+	}
 }

@@ -20,8 +20,8 @@ The goal is not novelty for its own sake. It is to create a portfolio that:
 - SSH server powered by Wish
 - Terminal UI built with Bubble Tea and Lip Gloss
 - Three tabs: About, Projects, and Blog
-- Project browsing within the Projects tab
-- Keyboard controls for switching tabs, browsing projects, and scrolling
+- Project and blog index views with detail pages
+- Keyboard controls for switching tabs, browsing indexes, reading detail pages, and opening help
 - Minimal project structure that is easy to customize
 
 ## Getting Started
@@ -72,13 +72,16 @@ Application content is file-backed:
 - `left`, `h`, `tab`: previous tab
 - `right`, `l`, `shift+tab`: next tab
 - `1`, `2`, `3`: jump directly to About, Projects, or Blog
-- `n`, `p`: next and previous project or blog post inside the active content tab
-- `up`, `k`: scroll up
-- `down`, `j`: scroll down
+- `j`, `k`: move selection in index views or scroll in detail views
+- `enter`: open the selected project or blog post
+- `esc`, `backspace`: return from a detail view to its index
+- `n`, `p`: next and previous project or blog post inside a detail view
+- `up`, `down`: scroll in detail views
 - `space`, `f`: page down
 - `b`: page up
 - `g`: top
 - `G`: bottom
+- `?`: toggle the help screen
 - `q` or `ctrl+c`: quit
 
 ## Project Structure
