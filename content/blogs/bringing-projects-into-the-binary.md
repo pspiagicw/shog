@@ -1,5 +1,7 @@
 +++
 title = "Bringing Projects into the Binary"
+date = "2026-03-01"
+tags = ["build", "content", "github"]
 description = "Why vendoring project README files at build time is a good fit for this app."
 +++
 

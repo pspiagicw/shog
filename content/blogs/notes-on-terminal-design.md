@@ -1,5 +1,7 @@
 +++
 title = "Notes on Terminal Design"
+date = "2026-02-18"
+tags = ["design", "terminal", "ux"]
 description = "A few constraints that make terminal interfaces feel deliberate instead of cramped."
 +++
 

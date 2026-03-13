@@ -65,7 +65,7 @@ Application content is file-backed:
 - `content/app.toml` controls the app title and blog placeholder
 - `content/about.md` provides the About tab body
 - `content/projects.urls` lists GitHub repositories to vendor into the Projects tab
-- `content/blogs/` holds markdown blog posts, including Hugo-style content files
+- `content/blogs/` holds markdown blog posts, including Hugo-style content files with `title`, `date`, `tags`, and `description` front matter
 
 ## Controls
 

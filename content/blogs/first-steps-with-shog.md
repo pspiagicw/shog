@@ -1,5 +1,7 @@
 +++
 title = "First Steps with Shog"
+date = "2026-02-24"
+tags = ["terminal", "portfolio", "wish"]
 description = "Why an SSH-native portfolio feels more interesting than another polished web template."
 +++
 

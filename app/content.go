@@ -4,7 +4,9 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -55,7 +57,7 @@ func loadContent(contentFS fs.FS) content {
 			readmeBody = strings.TrimSpace(string(loaded))
 		}
 
-		title, summary, body, _ := parseMarkdownDocument(readmeBody)
+		title, summary, body, _, _ := parseMarkdownDocument(readmeBody)
 		if title == "" {
 			title = humanizeSlug(slug)
 		}
@@ -226,7 +228,13 @@ func loadBlogPages(contentFS fs.FS, dir string) []page {
 		return nil
 	}
 
-	blogs := make([]page, 0, len(entries))
+	type blogEntry struct {
+		page    page
+		date    time.Time
+		hasDate bool
+	}
+
+	blogs := make([]blogEntry, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
@@ -237,21 +245,42 @@ func loadBlogPages(contentFS fs.FS, dir string) []page {
 			continue
 		}
 
-		title, summary, body, meta := parseMarkdownDocument(string(raw))
+		title, summary, body, meta, dateValue := parseMarkdownDocument(string(raw))
 		slug := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
-		blogs = append(blogs, page{
-			Title:   fallback(title, humanizeSlug(slug)),
-			Summary: fallback(summary, "Blog post"),
-			Content: fallback(body, "Empty blog post."),
-			Meta:    meta,
+		date, hasDate := parseFrontMatterDate(dateValue)
+		blogs = append(blogs, blogEntry{
+			page: page{
+				Title:   fallback(title, humanizeSlug(slug)),
+				Summary: fallback(summary, "Blog post"),
+				Content: fallback(body, "Empty blog post."),
+				Meta:    meta,
+			},
+			date:    date,
+			hasDate: hasDate,
 		})
 	}
 
-	return blogs
+	sort.SliceStable(blogs, func(i, j int) bool {
+		if blogs[i].hasDate && blogs[j].hasDate {
+			return blogs[i].date.After(blogs[j].date)
+		}
+		if blogs[i].hasDate != blogs[j].hasDate {
+			return blogs[i].hasDate
+		}
+
+		return strings.ToLower(blogs[i].page.Title) < strings.ToLower(blogs[j].page.Title)
+	})
+
+	pages := make([]page, 0, len(blogs))
+	for _, blog := range blogs {
+		pages = append(pages, blog.page)
+	}
+
+	return pages
 }
 
-func parseMarkdownDocument(raw string) (string, string, string, string) {
-	title, summary, body, meta := parseFrontMatter(raw)
+func parseMarkdownDocument(raw string) (string, string, string, string, string) {
+	title, summary, body, dateValue, tags := parseFrontMatter(raw)
 	trimmedBody := strings.TrimSpace(body)
 	lines := strings.Split(trimmedBody, "\n")
 
@@ -263,30 +292,30 @@ func parseMarkdownDocument(raw string) (string, string, string, string) {
 		summary = firstMarkdownParagraph(lines)
 	}
 
-	return title, summary, trimmedBody, meta
+	return title, summary, trimmedBody, formatMeta(dateValue, tags), dateValue
 }
 
-func parseFrontMatter(raw string) (string, string, string, string) {
+func parseFrontMatter(raw string) (string, string, string, string, []string) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return "", "", "", ""
+		return "", "", "", "", nil
 	}
 
 	if strings.HasPrefix(trimmed, "+++\n") {
 		parts := strings.SplitN(trimmed, "\n+++\n", 2)
 		if len(parts) == 2 {
-			return frontMatterTitle(parts[0]), frontMatterDescription(parts[0]), parts[1], frontMatterDate(parts[0])
+			return frontMatterTitle(parts[0]), frontMatterDescription(parts[0]), parts[1], frontMatterDate(parts[0]), frontMatterTags(parts[0])
 		}
 	}
 
 	if strings.HasPrefix(trimmed, "---\n") {
 		parts := strings.SplitN(trimmed, "\n---\n", 2)
 		if len(parts) == 2 {
-			return frontMatterTitle(parts[0]), frontMatterDescription(parts[0]), parts[1], frontMatterDate(parts[0])
+			return frontMatterTitle(parts[0]), frontMatterDescription(parts[0]), parts[1], frontMatterDate(parts[0]), frontMatterTags(parts[0])
 		}
 	}
 
-	return "", "", raw, ""
+	return "", "", raw, "", nil
 }
 
 func frontMatterTitle(frontMatter string) string {
@@ -322,7 +351,97 @@ func frontMatterDescription(frontMatter string) string {
 	return ""
 }
 
+func frontMatterTags(frontMatter string) []string {
+	lines := strings.Split(frontMatter, "\n")
+	var tags []string
+	inTagsBlock := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			inTagsBlock = false
+			continue
+		}
+
+		if inTagsBlock {
+			if strings.HasPrefix(trimmed, "- ") {
+				tags = append(tags, strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmed, "- ")), `"'`))
+				continue
+			}
+			if strings.Contains(trimmed, ":") || strings.Contains(trimmed, "=") {
+				inTagsBlock = false
+			}
+		}
+
+		if strings.HasPrefix(trimmed, "tags") {
+			value := frontMatterValue(trimmed)
+			if value == "" {
+				inTagsBlock = true
+				continue
+			}
+			return parseFrontMatterList(value)
+		}
+	}
+
+	return compactStrings(tags)
+}
+
+func parseFrontMatterList(value string) []string {
+	trimmed := strings.TrimSpace(value)
+	trimmed = strings.TrimPrefix(trimmed, "[")
+	trimmed = strings.TrimSuffix(trimmed, "]")
+	if trimmed == "" {
+		return nil
+	}
+
+	parts := strings.Split(trimmed, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.Trim(strings.TrimSpace(part), `"'`)
+		if value != "" {
+			values = append(values, value)
+		}
+	}
+
+	return values
+}
+
+func formatMeta(dateValue string, tags []string) string {
+	parts := make([]string, 0, 2)
+	if dateValue != "" {
+		parts = append(parts, dateValue)
+	}
+	if len(tags) > 0 {
+		parts = append(parts, strings.Join(tags, ", "))
+	}
+
+	return strings.Join(parts, "  •  ")
+}
+
+func parseFrontMatterDate(value string) (time.Time, bool) {
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+	}
+
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			return parsed, true
+		}
+	}
+
+	return time.Time{}, false
+}
+
 func unquoteFrontMatterValue(line string) string {
+	value := frontMatterValue(line)
+	return strings.Trim(strings.TrimSpace(value), `"'`)
+}
+
+func frontMatterValue(line string) string {
 	parts := strings.SplitN(line, "=", 2)
 	if len(parts) == 1 {
 		parts = strings.SplitN(line, ":", 2)
@@ -331,5 +450,16 @@ func unquoteFrontMatterValue(line string) string {
 		return ""
 	}
 
-	return strings.Trim(strings.TrimSpace(parts[1]), `"'`)
+	return strings.TrimSpace(parts[1])
+}
+
+func compactStrings(values []string) []string {
+	compact := make([]string, 0, len(values))
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			compact = append(compact, value)
+		}
+	}
+
+	return compact
 }
