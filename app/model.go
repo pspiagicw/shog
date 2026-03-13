@@ -260,12 +260,12 @@ func (m model) pageLines(current page, width int) []string {
 		"",
 	}
 
-	lines = append(lines, wrapStyled(current.Title, width, titleStyle)...)
-	lines = append(lines, "")
-	if current.Summary != "" {
-		lines = append(lines, wrapStyled(current.Summary, width, summaryStyle)...)
-		lines = append(lines, "")
-	}
+	// lines = append(lines, wrapStyled(current.Title, width, titleStyle)...)
+	// lines = append(lines, "")
+	// if current.Summary != "" {
+	// 	lines = append(lines, wrapStyled(current.Summary, width, summaryStyle)...)
+	// 	lines = append(lines, "")
+	// }
 	if current.Meta != "" {
 		lines = append(lines, wrapStyled(current.Meta, width, metaStyle)...)
 		lines = append(lines, "")
