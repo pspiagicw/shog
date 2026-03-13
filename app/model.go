@@ -474,7 +474,7 @@ func (m model) footerContext() string {
 }
 
 func (m model) projectIndexPage() page {
-	items := make([]string, 0, len(m.content.Projects)*3)
+	items := make([]string, 0, len(m.content.Projects)*2)
 	for i, project := range m.content.Projects {
 		prefix := "  "
 		if i == m.projectIndex {
@@ -482,10 +482,7 @@ func (m model) projectIndexPage() page {
 		}
 
 		items = append(items, fmt.Sprintf("%s%s", prefix, project.Title))
-		if project.Summary != "" {
-			items = append(items, fmt.Sprintf("    %s", project.Summary))
-		}
-		items = append(items, "")
+		items = append(items, fmt.Sprintf("    %s", firstLine(project.Summary)))
 	}
 
 	return page{
@@ -548,4 +545,13 @@ func (m model) helpPage() page {
 			"- `esc` / `backspace`: return to index",
 		}, "\n")),
 	}
+}
+
+func firstLine(value string) string {
+	lines := strings.Split(strings.TrimSpace(value), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		return ""
+	}
+
+	return lines[0]
 }
