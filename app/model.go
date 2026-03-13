@@ -13,10 +13,11 @@ import (
 )
 
 type page struct {
-	Title   string
-	Summary string
-	Content string
-	Meta    string
+	Title    string
+	Summary  string
+	Content  string
+	Meta     string
+	Markdown bool
 }
 
 type model struct {
@@ -255,7 +256,11 @@ func (m model) pageLines(current page, width int) []string {
 		lines = append(lines, wrapStyled(current.Meta, width, metaStyle)...)
 		lines = append(lines, "")
 	}
-	lines = append(lines, renderMarkdown(current.Content, width)...)
+	if current.Markdown {
+		lines = append(lines, renderMarkdown(current.Content, width)...)
+	} else {
+		lines = append(lines, wrapPlain(current.Content, width)...)
+	}
 	lines = append(lines, "", footerStyle.Render(fmt.Sprintf(
 		"%s  •  h/left prev tab  •  l/right next tab  •  ? help  •  q quit",
 		m.footerContext(),
@@ -304,6 +309,10 @@ func wrapStyled(text string, width int, style lipgloss.Style) []string {
 	}
 
 	return lines
+}
+
+func wrapPlain(text string, width int) []string {
+	return wrapStyled(text, width, bodyStyle)
 }
 
 func renderMarkdown(text string, width int) []string {
@@ -420,14 +429,20 @@ func (m model) currentPage() page {
 		if m.projectList {
 			return m.projectIndexPage()
 		}
-		return m.content.Projects[m.projectIndex]
+		project := m.content.Projects[m.projectIndex]
+		project.Markdown = true
+		return project
 	case 2:
 		if m.blogList {
 			return m.blogIndexPage()
 		}
-		return m.content.Blogs[m.blogIndex]
+		blog := m.content.Blogs[m.blogIndex]
+		blog.Markdown = true
+		return blog
 	default:
-		return m.content.About
+		about := m.content.About
+		about.Markdown = true
+		return about
 	}
 }
 
@@ -486,9 +501,10 @@ func (m model) projectIndexPage() page {
 	}
 
 	return page{
-		Title:   "Projects",
-		Summary: "Project index",
-		Content: strings.TrimSpace(strings.Join(items, "\n")),
+		Title:    "Projects",
+		Summary:  "Project index",
+		Content:  strings.TrimSpace(strings.Join(items, "\n")),
+		Markdown: false,
 	}
 }
 
@@ -512,9 +528,10 @@ func (m model) blogIndexPage() page {
 	}
 
 	return page{
-		Title:   "Blog",
-		Summary: "Blog index",
-		Content: strings.TrimSpace(strings.Join(items, "\n")),
+		Title:    "Blog",
+		Summary:  "Blog index",
+		Content:  strings.TrimSpace(strings.Join(items, "\n")),
+		Markdown: false,
 	}
 }
 
@@ -544,6 +561,7 @@ func (m model) helpPage() page {
 			"- `g` / `G`: top / bottom",
 			"- `esc` / `backspace`: return to index",
 		}, "\n")),
+		Markdown: true,
 	}
 }
 
