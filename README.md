@@ -19,8 +19,9 @@ The goal is not novelty for its own sake. It is to create a portfolio that:
 
 - SSH server powered by Wish
 - Terminal UI built with Bubble Tea and Lip Gloss
-- Multi-page navigation for intro and project highlights
-- Simple keyboard controls for moving between pages
+- Three tabs: About, Projects, and Blog
+- Project browsing within the Projects tab
+- Keyboard controls for switching tabs, browsing projects, and scrolling
 - Minimal project structure that is easy to customize
 
 ## Getting Started
@@ -60,13 +61,15 @@ SHOG_HOST=127.0.0.1 SHOG_PORT=23234 go run .
 
 Application content is file-backed:
 
-- `app.config` controls the app title and project pages
-- `about.md` provides the About page body
+- `app.toml` controls the app title, project entries, and blog placeholder
+- `about.md` provides the About tab body
 
 ## Controls
 
-- `left`, `h`, `p`: previous page
-- `right`, `l`, `n`: next page
+- `left`, `h`, `tab`: previous tab
+- `right`, `l`, `shift+tab`: next tab
+- `1`, `2`, `3`: jump directly to About, Projects, or Blog
+- `n`, `p`: next and previous project inside the Projects tab
 - `up`, `k`: scroll up
 - `down`, `j`: scroll down
 - `space`, `f`: page down
@@ -81,7 +84,7 @@ Application content is file-backed:
 .
 ├── app/             Bubble Tea model and content loading
 ├── about.md         About page copy
-├── app.config       App title and project page content
+├── app.toml         App title, projects, and blog placeholder
 ├── main.go          Wish server entrypoint
 ├── TODO.md          Planned roadmap and next steps
 ├── makefile         Basic build and formatting commands
@@ -106,12 +109,12 @@ Planned future direction:
 
 ## Customization
 
-Most of the behavior lives in `app/model.go`, while `app.config` and `about.md` now drive the visible content.
+Most of the behavior lives in `app/model.go`, while `app.toml` and `about.md` now drive the visible content.
 
 For a personal deployment, the usual next steps are:
 
 1. Replace `about.md` with your actual introduction.
-2. Edit `app.config` to set the app title and real project pages.
+2. Edit `app.toml` to set the app title, projects, and blog placeholder text.
 3. Adjust styling in `app/model.go` to match your tone.
 4. Deploy the app on a host with port `22` or another SSH-accessible port.
 

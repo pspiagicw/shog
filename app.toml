@@ -1,0 +1,32 @@
+title = "shog"
+
+[about]
+title = "About"
+summary = "A short intro delivered over SSH."
+
+[[projects]]
+title = "Project One"
+summary = "Replace this with a real flagship project."
+body = """
+Problem: Describe the problem space in one sentence.
+
+Build: Note the stack, architecture, or unusual constraint.
+
+Result: Summarize the outcome, adoption, or what you learned.
+"""
+
+[[projects]]
+title = "Project Two"
+summary = "A second page keeps the navigation model honest."
+body = """
+Highlight a contrasting project here.
+
+This can later become a richer card, timeline, or interactive selector.
+
+A future blog page can slot into the same page list without changing the app shape.
+"""
+
+[blog]
+title = "Blog"
+summary = "Writing will show up here later."
+body = "No posts yet."

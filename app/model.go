@@ -17,19 +17,17 @@ type page struct {
 }
 
 type model struct {
-	width  int
-	height int
-	index  int
-	scroll int
-	title  string
-	pages  []page
+	width        int
+	height       int
+	activeTab    int
+	projectIndex int
+	scroll       int
+	content      content
 }
 
 func NewModel(sess ssh.Session) (tea.Model, []tea.ProgramOption) {
-	title, pages := loadContent(".")
 	m := model{
-		title: title,
-		pages: pages,
+		content: loadContent("."),
 	}
 
 	return m, []tea.ProgramOption{
@@ -51,11 +49,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
-		case "right", "l", "n":
-			m.index = (m.index + 1) % len(m.pages)
+		case "right", "l", "tab":
+			m.activeTab = (m.activeTab + 1) % 3
 			m.scroll = 0
-		case "left", "h", "p":
-			m.index = (m.index - 1 + len(m.pages)) % len(m.pages)
+		case "left", "h", "shift+tab":
+			m.activeTab = (m.activeTab + 2) % 3
+			m.scroll = 0
+		case "n":
+			if m.activeTab == 1 {
+				m.projectIndex = (m.projectIndex + 1) % len(m.content.Projects)
+				m.scroll = 0
+			}
+		case "p":
+			if m.activeTab == 1 {
+				m.projectIndex = (m.projectIndex - 1 + len(m.content.Projects)) % len(m.content.Projects)
+				m.scroll = 0
+			}
+		case "1":
+			m.activeTab = 0
+			m.scroll = 0
+		case "2":
+			m.activeTab = 1
+			m.scroll = 0
+		case "3":
+			m.activeTab = 2
 			m.scroll = 0
 		case "down", "j":
 			m.scroll++
@@ -80,11 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if len(m.pages) == 0 {
-		return "No pages configured."
-	}
-
-	current := m.pages[m.index]
+	current := m.currentPage()
 	contentWidth := m.contentWidth()
 	lines := m.pageLines(current, contentWidth)
 	start := min(m.scroll, max(0, len(lines)-m.contentHeight()))
@@ -123,11 +136,23 @@ var (
 
 	footerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244"))
+
+	activeTabStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("16")).
+			Background(lipgloss.Color("86")).
+			Padding(0, 1).
+			Bold(true)
+
+	inactiveTabStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("252")).
+				Padding(0, 1)
 )
 
 func (m model) pageLines(current page, width int) []string {
 	lines := []string{
-		headerStyle.Render(m.title),
+		headerStyle.Render(m.content.Title),
+		"",
+		m.tabsLine(width),
 		"",
 	}
 
@@ -137,9 +162,8 @@ func (m model) pageLines(current page, width int) []string {
 	lines = append(lines, "")
 	lines = append(lines, wrapStyled(current.Content, width, bodyStyle)...)
 	lines = append(lines, "", footerStyle.Render(fmt.Sprintf(
-		"Page %d/%d  •  h/left prev  •  l/right next  •  j/k scroll  •  q quit",
-		m.index+1,
-		len(m.pages),
+		"%s  •  h/left prev tab  •  l/right next tab  •  j/k scroll  •  q quit",
+		m.footerContext(),
 	)))
 
 	return lines
@@ -170,11 +194,7 @@ func (m model) contentHeight() int {
 }
 
 func (m model) maxScroll() int {
-	if len(m.pages) == 0 {
-		return 0
-	}
-
-	return max(0, len(m.pageLines(m.pages[m.index], m.contentWidth()))-m.contentHeight())
+	return max(0, len(m.pageLines(m.currentPage(), m.contentWidth()))-m.contentHeight())
 }
 
 func (m *model) clampScroll() {
@@ -263,4 +283,46 @@ func min(a, b int) int {
 	}
 
 	return b
+}
+
+func (m model) currentPage() page {
+	switch m.activeTab {
+	case 1:
+		return m.content.Projects[m.projectIndex]
+	case 2:
+		return m.content.Blog
+	default:
+		return m.content.About
+	}
+}
+
+func (m model) tabsLine(width int) string {
+	tabs := []string{
+		m.renderTab("About", 0),
+		m.renderTab("Projects", 1),
+		m.renderTab("Blog", 2),
+	}
+
+	return lipgloss.NewStyle().Width(width).Render(strings.Join(tabs, "  "))
+}
+
+func (m model) renderTab(label string, index int) string {
+	if m.activeTab == index {
+		return activeTabStyle.Render(label)
+	}
+
+	return inactiveTabStyle.Render(label)
+}
+
+func (m model) footerContext() string {
+	if m.activeTab != 1 {
+		return fmt.Sprintf("Tab %d/3  •  1/2/3 jump to tab", m.activeTab+1)
+	}
+
+	return fmt.Sprintf(
+		"Tab %d/3  •  Project %d/%d  •  n/p switch project",
+		m.activeTab+1,
+		m.projectIndex+1,
+		len(m.content.Projects),
+	)
 }

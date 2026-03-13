@@ -1,33 +1,42 @@
 package app
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 type config struct {
-	Title     string       `json:"title"`
-	AboutPage aboutPage    `json:"about_page"`
-	Pages     []configPage `json:"pages"`
+	Title    string       `toml:"title"`
+	About    aboutSection `toml:"about"`
+	Projects []configPage `toml:"projects"`
+	Blog     configPage   `toml:"blog"`
 }
 
-type aboutPage struct {
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
+type aboutSection struct {
+	Title   string `toml:"title"`
+	Summary string `toml:"summary"`
 }
 
 type configPage struct {
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
-	Body    string `json:"body"`
+	Title   string `toml:"title"`
+	Summary string `toml:"summary"`
+	Body    string `toml:"body"`
 }
 
-func loadContent(root string) (string, []page) {
+type content struct {
+	Title    string
+	About    page
+	Projects []page
+	Blog     page
+}
+
+func loadContent(root string) content {
 	cfg := defaultConfig()
 
-	if loaded, err := loadConfig(filepath.Join(root, "app.config")); err == nil {
+	if loaded, err := loadConfig(filepath.Join(root, "app.toml")); err == nil {
 		cfg = loaded
 	}
 
@@ -36,23 +45,37 @@ func loadContent(root string) (string, []page) {
 		aboutBody = strings.TrimSpace(string(loaded))
 	}
 
-	pages := []page{
-		{
-			Title:   fallback(cfg.AboutPage.Title, "About"),
-			Summary: fallback(cfg.AboutPage.Summary, "A short intro delivered over SSH."),
-			Content: fallback(aboutBody, defaultAboutBody()),
-		},
-	}
-
-	for _, entry := range cfg.Pages {
-		pages = append(pages, page{
-			Title:   entry.Title,
-			Summary: entry.Summary,
-			Content: entry.Body,
+	projects := make([]page, 0, len(cfg.Projects))
+	for _, entry := range cfg.Projects {
+		projects = append(projects, page{
+			Title:   fallback(entry.Title, "Untitled Project"),
+			Summary: fallback(entry.Summary, "No summary provided."),
+			Content: fallback(entry.Body, "Add project details in app.toml."),
 		})
 	}
 
-	return fallback(cfg.Title, "shog"), pages
+	if len(projects) == 0 {
+		projects = append(projects, page{
+			Title:   "Projects",
+			Summary: "No projects configured yet.",
+			Content: "Add one or more [[projects]] entries in app.toml to populate this tab.",
+		})
+	}
+
+	return content{
+		Title: fallback(cfg.Title, "shog"),
+		About: page{
+			Title:   fallback(cfg.About.Title, "About"),
+			Summary: fallback(cfg.About.Summary, "A short intro delivered over SSH."),
+			Content: fallback(aboutBody, defaultAboutBody()),
+		},
+		Projects: projects,
+		Blog: page{
+			Title:   fallback(cfg.Blog.Title, "Blog"),
+			Summary: fallback(cfg.Blog.Summary, "Writing will show up here later."),
+			Content: fallback(cfg.Blog.Body, "No posts yet."),
+		},
+	}
 }
 
 func loadConfig(path string) (config, error) {
@@ -62,7 +85,7 @@ func loadConfig(path string) (config, error) {
 	}
 
 	var cfg config
-	if err := json.Unmarshal(raw, &cfg); err != nil {
+	if err := toml.Unmarshal(raw, &cfg); err != nil {
 		return config{}, err
 	}
 
@@ -72,11 +95,11 @@ func loadConfig(path string) (config, error) {
 func defaultConfig() config {
 	return config{
 		Title: "shog",
-		AboutPage: aboutPage{
+		About: aboutSection{
 			Title:   "About",
 			Summary: "A short intro delivered over SSH.",
 		},
-		Pages: []configPage{
+		Projects: []configPage{
 			{
 				Title:   "Project One",
 				Summary: "Replace this with a real flagship project.",
@@ -99,6 +122,11 @@ func defaultConfig() config {
 					"A future blog page can slot into the same page list without changing the app shape.",
 				}, "\n"),
 			},
+		},
+		Blog: configPage{
+			Title:   "Blog",
+			Summary: "Writing will show up here later.",
+			Body:    "No posts yet.",
 		},
 	}
 }
