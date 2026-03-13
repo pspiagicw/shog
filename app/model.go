@@ -13,7 +13,7 @@ import (
 type page struct {
 	Title   string
 	Summary string
-	Body    []string
+	Content string
 }
 
 type model struct {
@@ -21,12 +21,15 @@ type model struct {
 	height int
 	index  int
 	scroll int
+	title  string
 	pages  []page
 }
 
 func NewModel(sess ssh.Session) (tea.Model, []tea.ProgramOption) {
+	title, pages := loadContent(".")
 	m := model{
-		pages: seedPages(),
+		title: title,
+		pages: pages,
 	}
 
 	return m, []tea.ProgramOption{
@@ -98,39 +101,6 @@ func (m model) View() string {
 		Render(strings.Join(visible, "\n"))
 }
 
-func seedPages() []page {
-	return []page{
-		{
-			Title:   "About",
-			Summary: "A short intro delivered over SSH.",
-			Body: []string{
-				"Hi, I'm Your Name.",
-				"I build software, explore ideas, and use this terminal app as a compact portfolio.",
-				"Use the arrow keys or h/l to move between pages.",
-			},
-		},
-		{
-			Title:   "Project One",
-			Summary: "Replace this with a real flagship project.",
-			Body: []string{
-				"Problem: Describe the problem space in one sentence.",
-				"Build: Note the stack, architecture, or unusual constraint.",
-				"Result: Summarize the outcome, adoption, or what you learned.",
-			},
-		},
-		{
-			Title:   "Project Two",
-			Summary: "A second page keeps the navigation model honest.",
-			Body: []string{
-				"Highlight a contrasting project here.",
-				"This can later become a richer card, timeline, or interactive selector.",
-				"A future blog page can slot into the same page list without changing the app shape.",
-				"A future blog page can slot into the same page list without changing the app shape.",
-			},
-		},
-	}
-}
-
 var (
 	frameStyle = lipgloss.NewStyle().
 			Padding(1, 2).
@@ -157,7 +127,7 @@ var (
 
 func (m model) pageLines(current page, width int) []string {
 	lines := []string{
-		headerStyle.Render("shog"),
+		headerStyle.Render(m.title),
 		"",
 	}
 
@@ -165,14 +135,7 @@ func (m model) pageLines(current page, width int) []string {
 	lines = append(lines, "")
 	lines = append(lines, wrapStyled(current.Summary, width, summaryStyle)...)
 	lines = append(lines, "")
-
-	for i, line := range current.Body {
-		lines = append(lines, wrapStyled(line, width, bodyStyle)...)
-		if i < len(current.Body)-1 {
-			lines = append(lines, "")
-		}
-	}
-
+	lines = append(lines, wrapStyled(current.Content, width, bodyStyle)...)
 	lines = append(lines, "", footerStyle.Render(fmt.Sprintf(
 		"Page %d/%d  •  h/left prev  •  l/right next  •  j/k scroll  •  q quit",
 		m.index+1,

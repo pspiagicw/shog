@@ -58,17 +58,30 @@ Example:
 SHOG_HOST=127.0.0.1 SHOG_PORT=23234 go run .
 ```
 
+Application content is file-backed:
+
+- `app.config` controls the app title and project pages
+- `about.md` provides the About page body
+
 ## Controls
 
 - `left`, `h`, `p`: previous page
 - `right`, `l`, `n`: next page
+- `up`, `k`: scroll up
+- `down`, `j`: scroll down
+- `space`, `f`: page down
+- `b`: page up
+- `g`: top
+- `G`: bottom
 - `q` or `ctrl+c`: quit
 
 ## Project Structure
 
 ```text
 .
-├── internal/app/    Bubble Tea model and page rendering
+├── app/             Bubble Tea model and content loading
+├── about.md         About page copy
+├── app.config       App title and project page content
 ├── main.go          Wish server entrypoint
 ├── TODO.md          Planned roadmap and next steps
 ├── makefile         Basic build and formatting commands
@@ -93,13 +106,13 @@ Planned future direction:
 
 ## Customization
 
-Most of the experience lives in `internal/app/model.go`. That is where page content, navigation behavior, and presentation are currently defined.
+Most of the behavior lives in `app/model.go`, while `app.config` and `about.md` now drive the visible content.
 
 For a personal deployment, the usual next steps are:
 
-1. Replace the placeholder page content with your actual introduction.
-2. Add real projects with sharper summaries and outcomes.
-3. Adjust styling to match your tone.
+1. Replace `about.md` with your actual introduction.
+2. Edit `app.config` to set the app title and real project pages.
+3. Adjust styling in `app/model.go` to match your tone.
 4. Deploy the app on a host with port `22` or another SSH-accessible port.
 
 ## License
