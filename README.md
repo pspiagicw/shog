@@ -33,6 +33,7 @@ The goal is not novelty for its own sake. It is to create a portfolio that:
 ### Run locally
 
 ```bash
+./scripts/fetch-project-readmes.sh
 go run .
 ```
 
@@ -61,8 +62,9 @@ SHOG_HOST=127.0.0.1 SHOG_PORT=23234 go run .
 
 Application content is file-backed:
 
-- `app.toml` controls the app title, project entries, and blog placeholder
-- `about.md` provides the About tab body
+- `content/app.toml` controls the app title and blog placeholder
+- `content/about.md` provides the About tab body
+- `content/projects.urls` lists GitHub repositories to vendor into the Projects tab
 
 ## Controls
 
@@ -82,13 +84,12 @@ Application content is file-backed:
 
 ```text
 .
-├── app/             Bubble Tea model and content loading
-├── about.md         About page copy
-├── app.toml         App title, projects, and blog placeholder
-├── main.go          Wish server entrypoint
-├── TODO.md          Planned roadmap and next steps
-├── makefile         Basic build and formatting commands
-└── build-release.sh Release packaging helper
+├── app/                 Bubble Tea model and content loading
+├── content/             Embedded app content and vendored project READMEs
+├── main.go              Wish server entrypoint
+├── scripts/             Content fetch helpers
+├── TODO.md              Planned roadmap and next steps
+└── makefile             Basic build and formatting commands
 ```
 
 ## Roadmap
@@ -109,14 +110,15 @@ Planned future direction:
 
 ## Customization
 
-Most of the behavior lives in `app/model.go`, while `app.toml` and `about.md` now drive the visible content.
+Most of the behavior lives in `app/model.go`, while the `content/` directory drives the visible content.
 
 For a personal deployment, the usual next steps are:
 
-1. Replace `about.md` with your actual introduction.
-2. Edit `app.toml` to set the app title, projects, and blog placeholder text.
-3. Adjust styling in `app/model.go` to match your tone.
-4. Deploy the app on a host with port `22` or another SSH-accessible port.
+1. Replace `content/about.md` with your actual introduction.
+2. Edit `content/app.toml` to set the app title and blog placeholder text.
+3. Add repository URLs to `content/projects.urls`, then run `./scripts/fetch-project-readmes.sh`.
+4. Adjust styling in `app/model.go` to match your tone.
+5. Deploy the app on a host with port `22` or another SSH-accessible port.
 
 ## License
 

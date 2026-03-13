@@ -1,0 +1,10 @@
+title = "shog"
+
+[about]
+title = "About"
+summary = "A short intro delivered over SSH."
+
+[blog]
+title = "Blog"
+summary = "Writing will show up here later."
+body = "No posts yet."

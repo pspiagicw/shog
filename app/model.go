@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"io/fs"
 	"strings"
 	"unicode/utf8"
 
@@ -25,13 +26,17 @@ type model struct {
 	content      content
 }
 
-func NewModel(sess ssh.Session) (tea.Model, []tea.ProgramOption) {
-	m := model{
-		content: loadContent("."),
-	}
+func NewModel(contentFS fs.FS) func(ssh.Session) (tea.Model, []tea.ProgramOption) {
+	loadedContent := loadContent(contentFS)
 
-	return m, []tea.ProgramOption{
-		tea.WithAltScreen(),
+	return func(sess ssh.Session) (tea.Model, []tea.ProgramOption) {
+		m := model{
+			content: loadedContent,
+		}
+
+		return m, []tea.ProgramOption{
+			tea.WithAltScreen(),
+		}
 	}
 }
 

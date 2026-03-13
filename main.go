@@ -1,6 +1,8 @@
 package main
 
 import (
+	"embed"
+	"io/fs"
 	"os"
 
 	"github.com/pspiagicw/shog/app"
@@ -10,15 +12,22 @@ import (
 	bm "github.com/charmbracelet/wish/bubbletea"
 )
 
+//go:embed content
+var contentFiles embed.FS
+
 func main() {
 	host := envOrDefault("SHOG_HOST", "0.0.0.0")
 	port := envOrDefault("SHOG_PORT", "23234")
+	contentFS, err := fs.Sub(contentFiles, "content")
+	if err != nil {
+		log.Fatal("failed to load embedded content", "err", err)
+	}
 
 	server, err := wish.NewServer(
 		wish.WithAddress(host+":"+port),
 		wish.WithHostKeyPath(".wish_ed25519"),
 		wish.WithMiddleware(
-			bm.Middleware(app.NewModel),
+			bm.Middleware(app.NewModel(contentFS)),
 		),
 	)
 	if err != nil {

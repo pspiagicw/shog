@@ -1,9 +1,13 @@
-all: build 
+all: build
 
 build:
-	go build .
+	./scripts/fetch-project-readmes.sh
+	env GOCACHE=/tmp/go-build GOMODCACHE=/tmp/go-mod-cache go build .
 
 format:
-	go format ./...
-.PHONY: build test format all
+	gofmt -w app/*.go main.go
 
+fetch-projects:
+	./scripts/fetch-project-readmes.sh
+
+.PHONY: build test format fetch-projects all

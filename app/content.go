@@ -1,18 +1,18 @@
 package app
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
 type config struct {
-	Title    string       `toml:"title"`
-	About    aboutSection `toml:"about"`
-	Projects []configPage `toml:"projects"`
-	Blog     configPage   `toml:"blog"`
+	Title string       `toml:"title"`
+	About aboutSection `toml:"about"`
+	Blog  configPage   `toml:"blog"`
 }
 
 type aboutSection struct {
@@ -33,32 +33,41 @@ type content struct {
 	Blog     page
 }
 
-func loadContent(root string) content {
+func loadContent(contentFS fs.FS) content {
 	cfg := defaultConfig()
 
-	if loaded, err := loadConfig(filepath.Join(root, "app.toml")); err == nil {
+	if loaded, err := loadConfig(contentFS, "app.toml"); err == nil {
 		cfg = loaded
 	}
 
 	aboutBody := defaultAboutBody()
-	if loaded, err := os.ReadFile(filepath.Join(root, "about.md")); err == nil {
+	if loaded, err := fs.ReadFile(contentFS, "about.md"); err == nil {
 		aboutBody = strings.TrimSpace(string(loaded))
 	}
 
-	projects := make([]page, 0, len(cfg.Projects))
-	for _, entry := range cfg.Projects {
+	projectURLs := loadProjectURLs(contentFS, "projects.urls")
+	projects := make([]page, 0, len(projectURLs))
+	for _, repoURL := range projectURLs {
+		slug := projectSlug(repoURL)
+		readmePath := filepath.ToSlash(filepath.Join("projects", slug+".md"))
+		readmeBody := missingREADME(repoURL)
+		if loaded, err := fs.ReadFile(contentFS, readmePath); err == nil {
+			readmeBody = strings.TrimSpace(string(loaded))
+		}
+
+		title, summary, body := projectPageContent(slug, repoURL, readmeBody)
 		projects = append(projects, page{
-			Title:   fallback(entry.Title, "Untitled Project"),
-			Summary: fallback(entry.Summary, "No summary provided."),
-			Content: fallback(entry.Body, "Add project details in app.toml."),
+			Title:   title,
+			Summary: summary,
+			Content: body,
 		})
 	}
 
 	if len(projects) == 0 {
 		projects = append(projects, page{
 			Title:   "Projects",
-			Summary: "No projects configured yet.",
-			Content: "Add one or more [[projects]] entries in app.toml to populate this tab.",
+			Summary: "No projects have been fetched yet.",
+			Content: missingREADME("Add repository URLs to content/projects.urls and run scripts/fetch-project-readmes.sh before building."),
 		})
 	}
 
@@ -78,8 +87,8 @@ func loadContent(root string) content {
 	}
 }
 
-func loadConfig(path string) (config, error) {
-	raw, err := os.ReadFile(path)
+func loadConfig(contentFS fs.FS, filePath string) (config, error) {
+	raw, err := fs.ReadFile(contentFS, filePath)
 	if err != nil {
 		return config{}, err
 	}
@@ -99,30 +108,6 @@ func defaultConfig() config {
 			Title:   "About",
 			Summary: "A short intro delivered over SSH.",
 		},
-		Projects: []configPage{
-			{
-				Title:   "Project One",
-				Summary: "Replace this with a real flagship project.",
-				Body: strings.Join([]string{
-					"Problem: Describe the problem space in one sentence.",
-					"",
-					"Build: Note the stack, architecture, or unusual constraint.",
-					"",
-					"Result: Summarize the outcome, adoption, or what you learned.",
-				}, "\n"),
-			},
-			{
-				Title:   "Project Two",
-				Summary: "A second page keeps the navigation model honest.",
-				Body: strings.Join([]string{
-					"Highlight a contrasting project here.",
-					"",
-					"This can later become a richer card, timeline, or interactive selector.",
-					"",
-					"A future blog page can slot into the same page list without changing the app shape.",
-				}, "\n"),
-			},
-		},
 		Blog: configPage{
 			Title:   "Blog",
 			Summary: "Writing will show up here later.",
@@ -137,7 +122,101 @@ func defaultAboutBody() string {
 		"",
 		"I build software, explore ideas, and use this terminal app as a compact portfolio.",
 		"",
-		"Use the arrow keys or h/l to move between pages.",
+		"Use the tab controls to switch between About, Projects, and Blog.",
+	}, "\n")
+}
+
+func loadProjectURLs(contentFS fs.FS, filePath string) []string {
+	raw, err := fs.ReadFile(contentFS, filePath)
+	if err != nil {
+		return nil
+	}
+
+	lines := strings.Split(string(raw), "\n")
+	urls := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		urls = append(urls, trimmed)
+	}
+
+	return urls
+}
+
+func projectSlug(repoURL string) string {
+	trimmed := strings.TrimSpace(repoURL)
+	trimmed = strings.TrimPrefix(trimmed, "https://")
+	trimmed = strings.TrimPrefix(trimmed, "http://")
+	trimmed = strings.TrimSuffix(trimmed, "/")
+
+	return filepath.Base(trimmed)
+}
+
+func projectPageContent(slug, repoURL, readme string) (string, string, string) {
+	trimmed := strings.TrimSpace(readme)
+	if trimmed == "" {
+		return humanizeSlug(slug), repoURL, missingREADME(repoURL)
+	}
+
+	lines := strings.Split(trimmed, "\n")
+	title := humanizeSlug(slug)
+	if heading := firstMarkdownHeading(lines); heading != "" {
+		title = heading
+	}
+
+	summary := repoURL
+	if excerpt := firstMarkdownParagraph(lines); excerpt != "" {
+		summary = excerpt
+	}
+
+	return title, summary, trimmed
+}
+
+func firstMarkdownHeading(lines []string) string {
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			return strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+		}
+	}
+
+	return ""
+}
+
+func firstMarkdownParagraph(lines []string) string {
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		return trimmed
+	}
+
+	return ""
+}
+
+func humanizeSlug(slug string) string {
+	replacer := strings.NewReplacer("-", " ", "_", " ")
+	value := replacer.Replace(strings.TrimSpace(slug))
+	if value == "" {
+		return "Project"
+	}
+
+	wordPattern := regexp.MustCompile(`\b\w`)
+	return wordPattern.ReplaceAllStringFunc(value, strings.ToUpper)
+}
+
+func missingREADME(source string) string {
+	return strings.Join([]string{
+		"README content has not been fetched for this project yet.",
+		"",
+		"Run scripts/fetch-project-readmes.sh before building to vendor repository READMEs into the binary.",
+		"",
+		source,
 	}, "\n")
 }
 
