@@ -224,6 +224,20 @@ var (
 	bodyStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("255"))
 
+	indexTitleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("229")).
+			Bold(true)
+
+	indexTitleSelectedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("86")).
+				Bold(true)
+
+	indexSummaryStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("248"))
+
+	indexSummarySelectedStyle = lipgloss.NewStyle().
+					Foreground(lipgloss.Color("255"))
+
 	footerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244"))
 
@@ -312,7 +326,12 @@ func wrapStyled(text string, width int, style lipgloss.Style) []string {
 }
 
 func wrapPlain(text string, width int) []string {
-	return wrapStyled(text, width, bodyStyle)
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return []string{""}
+	}
+
+	return lines
 }
 
 func renderMarkdown(text string, width int) []string {
@@ -496,8 +515,8 @@ func (m model) projectIndexPage() page {
 			prefix = "> "
 		}
 
-		items = append(items, fmt.Sprintf("%s%s", prefix, project.Title))
-		items = append(items, fmt.Sprintf("    %s", firstLine(project.Summary)))
+		items = append(items, renderIndexEntryLine(prefix, project.Title, i == m.projectIndex, true))
+		items = append(items, renderIndexEntryLine("  ", firstLine(project.Summary), i == m.projectIndex, false))
 	}
 
 	return page{
@@ -516,15 +535,14 @@ func (m model) blogIndexPage() page {
 			prefix = "> "
 		}
 
-		line := fmt.Sprintf("%s%s", prefix, post.Title)
+		line := post.Title
 		if post.Meta != "" {
 			line = fmt.Sprintf("%s (%s)", line, post.Meta)
 		}
-		items = append(items, line)
+		items = append(items, renderIndexEntryLine(prefix, line, i == m.blogIndex, true))
 		if post.Summary != "" {
-			items = append(items, fmt.Sprintf("    %s", post.Summary))
+			items = append(items, renderIndexEntryLine("  ", firstLine(post.Summary), i == m.blogIndex, false))
 		}
-		items = append(items, "")
 	}
 
 	return page{
@@ -572,4 +590,19 @@ func firstLine(value string) string {
 	}
 
 	return lines[0]
+}
+
+func renderIndexEntryLine(prefix, value string, selected, title bool) string {
+	style := indexSummaryStyle
+	if title {
+		style = indexTitleStyle
+	}
+	if selected && title {
+		style = indexTitleSelectedStyle
+	}
+	if selected && !title {
+		style = indexSummarySelectedStyle
+	}
+
+	return prefix + style.Render(value)
 }
