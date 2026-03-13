@@ -23,6 +23,7 @@ type model struct {
 	height       int
 	activeTab    int
 	projectIndex int
+	blogIndex    int
 	scroll       int
 	content      content
 }
@@ -65,10 +66,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activeTab == 1 {
 				m.projectIndex = (m.projectIndex + 1) % len(m.content.Projects)
 				m.scroll = 0
+			} else if m.activeTab == 2 {
+				m.blogIndex = (m.blogIndex + 1) % len(m.content.Blogs)
+				m.scroll = 0
 			}
 		case "p":
 			if m.activeTab == 1 {
 				m.projectIndex = (m.projectIndex - 1 + len(m.content.Projects)) % len(m.content.Projects)
+				m.scroll = 0
+			} else if m.activeTab == 2 {
+				m.blogIndex = (m.blogIndex - 1 + len(m.content.Blogs)) % len(m.content.Blogs)
 				m.scroll = 0
 			}
 		case "1":
@@ -320,7 +327,7 @@ func (m model) currentPage() page {
 	case 1:
 		return m.content.Projects[m.projectIndex]
 	case 2:
-		return m.content.Blog
+		return m.content.Blogs[m.blogIndex]
 	default:
 		return m.content.About
 	}
@@ -345,6 +352,15 @@ func (m model) renderTab(label string, index int) string {
 }
 
 func (m model) footerContext() string {
+	if m.activeTab == 2 {
+		return fmt.Sprintf(
+			"Tab %d/3  •  Post %d/%d  •  n/p switch post",
+			m.activeTab+1,
+			m.blogIndex+1,
+			len(m.content.Blogs),
+		)
+	}
+
 	if m.activeTab != 1 {
 		return fmt.Sprintf("Tab %d/3  •  1/2/3 jump to tab", m.activeTab+1)
 	}

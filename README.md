@@ -65,13 +65,14 @@ Application content is file-backed:
 - `content/app.toml` controls the app title and blog placeholder
 - `content/about.md` provides the About tab body
 - `content/projects.urls` lists GitHub repositories to vendor into the Projects tab
+- `content/blogs/` holds markdown blog posts, including Hugo-style content files
 
 ## Controls
 
 - `left`, `h`, `tab`: previous tab
 - `right`, `l`, `shift+tab`: next tab
 - `1`, `2`, `3`: jump directly to About, Projects, or Blog
-- `n`, `p`: next and previous project inside the Projects tab
+- `n`, `p`: next and previous project or blog post inside the active content tab
 - `up`, `k`: scroll up
 - `down`, `j`: scroll down
 - `space`, `f`: page down
@@ -117,8 +118,9 @@ For a personal deployment, the usual next steps are:
 1. Replace `content/about.md` with your actual introduction.
 2. Edit `content/app.toml` to set the app title and blog placeholder text.
 3. Add repository URLs to `content/projects.urls`, then run `./scripts/fetch-project-readmes.sh`.
-4. Adjust styling in `app/model.go` to match your tone.
-5. Deploy the app on a host with port `22` or another SSH-accessible port.
+4. Drop Hugo markdown posts into `content/blogs/`.
+5. Adjust styling in `app/model.go` to match your tone.
+6. Deploy the app on a host with port `22` or another SSH-accessible port.
 
 ## License
 

@@ -30,7 +30,7 @@ type content struct {
 	Title    string
 	About    page
 	Projects []page
-	Blog     page
+	Blogs    []page
 }
 
 func loadContent(contentFS fs.FS) content {
@@ -71,6 +71,15 @@ func loadContent(contentFS fs.FS) content {
 		})
 	}
 
+	blogs := loadBlogPages(contentFS, "blogs")
+	if len(blogs) == 0 {
+		blogs = append(blogs, page{
+			Title:   fallback(cfg.Blog.Title, "Blog"),
+			Summary: fallback(cfg.Blog.Summary, "Writing will show up here later."),
+			Content: fallback(cfg.Blog.Body, "No posts yet."),
+		})
+	}
+
 	return content{
 		Title: fallback(cfg.Title, "shog"),
 		About: page{
@@ -79,11 +88,7 @@ func loadContent(contentFS fs.FS) content {
 			Content: fallback(aboutBody, defaultAboutBody()),
 		},
 		Projects: projects,
-		Blog: page{
-			Title:   fallback(cfg.Blog.Title, "Blog"),
-			Summary: fallback(cfg.Blog.Summary, "Writing will show up here later."),
-			Content: fallback(cfg.Blog.Body, "No posts yet."),
-		},
+		Blogs:    blogs,
 	}
 }
 
@@ -156,7 +161,7 @@ func projectSlug(repoURL string) string {
 }
 
 func projectPageContent(slug, repoURL, readme string) (string, string, string) {
-	trimmed := strings.TrimSpace(readme)
+	_, _, trimmed := parseMarkdownDocument(readme)
 	if trimmed == "" {
 		return humanizeSlug(slug), repoURL, missingREADME(repoURL)
 	}
@@ -226,4 +231,106 @@ func fallback(value, defaultValue string) string {
 	}
 
 	return value
+}
+
+func loadBlogPages(contentFS fs.FS, dir string) []page {
+	entries, err := fs.ReadDir(contentFS, dir)
+	if err != nil {
+		return nil
+	}
+
+	blogs := make([]page, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+
+		raw, err := fs.ReadFile(contentFS, filepath.ToSlash(filepath.Join(dir, entry.Name())))
+		if err != nil {
+			continue
+		}
+
+		title, summary, body := parseMarkdownDocument(string(raw))
+		slug := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+		blogs = append(blogs, page{
+			Title:   fallback(title, humanizeSlug(slug)),
+			Summary: fallback(summary, "Blog post"),
+			Content: fallback(body, "Empty blog post."),
+		})
+	}
+
+	return blogs
+}
+
+func parseMarkdownDocument(raw string) (string, string, string) {
+	title, summary, body := parseFrontMatter(raw)
+	trimmedBody := strings.TrimSpace(body)
+	lines := strings.Split(trimmedBody, "\n")
+
+	if title == "" {
+		title = firstMarkdownHeading(lines)
+	}
+
+	if summary == "" {
+		summary = firstMarkdownParagraph(lines)
+	}
+
+	return title, summary, trimmedBody
+}
+
+func parseFrontMatter(raw string) (string, string, string) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", "", ""
+	}
+
+	if strings.HasPrefix(trimmed, "+++\n") {
+		parts := strings.SplitN(trimmed, "\n+++\n", 2)
+		if len(parts) == 2 {
+			return frontMatterFields(parts[0]), frontMatterDescription(parts[0]), parts[1]
+		}
+	}
+
+	if strings.HasPrefix(trimmed, "---\n") {
+		parts := strings.SplitN(trimmed, "\n---\n", 2)
+		if len(parts) == 2 {
+			return frontMatterFields(parts[0]), frontMatterDescription(parts[0]), parts[1]
+		}
+	}
+
+	return "", "", raw
+}
+
+func frontMatterFields(frontMatter string) string {
+	for _, line := range strings.Split(frontMatter, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "title") {
+			return unquoteFrontMatterValue(trimmed)
+		}
+	}
+
+	return ""
+}
+
+func frontMatterDescription(frontMatter string) string {
+	for _, line := range strings.Split(frontMatter, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "description") || strings.HasPrefix(trimmed, "summary") {
+			return unquoteFrontMatterValue(trimmed)
+		}
+	}
+
+	return ""
+}
+
+func unquoteFrontMatterValue(line string) string {
+	parts := strings.SplitN(line, "=", 2)
+	if len(parts) == 1 {
+		parts = strings.SplitN(line, ":", 2)
+	}
+	if len(parts) != 2 {
+		return ""
+	}
+
+	return strings.Trim(strings.TrimSpace(parts[1]), `"'`)
 }
